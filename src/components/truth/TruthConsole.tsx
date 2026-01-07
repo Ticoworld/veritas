@@ -164,6 +164,22 @@ export function TruthConsole() {
                 {result.analysis.summary}
               </p>
             )}
+            
+            {/* Sources Analyzed Badge */}
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#27272A]">
+              <span className="text-[#52525B] text-xs">📸 Sources:</span>
+              <div className="flex gap-2">
+                {result.truth.evidence.websiteScreenshot && (
+                  <span className="text-[#10B981] text-xs font-mono">Website ✓</span>
+                )}
+                {result.truth.evidence.twitterScreenshot && (
+                  <span className="text-[#10B981] text-xs font-mono">Twitter ✓</span>
+                )}
+                {result.truth.rugCheck && (
+                  <span className="text-[#10B981] text-xs font-mono">Contract ✓</span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Lies Detected */}

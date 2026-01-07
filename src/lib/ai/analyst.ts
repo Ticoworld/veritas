@@ -313,7 +313,7 @@ export async function analyzeTokenRisk(
     console.log(`[Veritas AI] Trying Gemini 3 Pro Preview (Deep Think${hasImage ? ' + Vision' : ''})...`);
     const response = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-3-pro-preview', 
+        model: 'gemini-3-flash-preview', 
         config: {
           thinkingConfig: { includeThoughts: true } 
         },
@@ -551,7 +551,7 @@ export async function runDeepInvestigation(
     console.log("[Veritas Sherlock] 🕵️‍♂️ Consulting Gemini 3 Pro...");
     const response = await withTimeout(
       ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-3-flash-preview',
         config: { thinkingConfig: { includeThoughts: true } },
         contents: [{ role: 'user', parts }]
       }),
