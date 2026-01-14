@@ -13,9 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Veritas | Web3 Anti-Scam Scanner",
-  description: "Detect rug pulls on Solana by analyzing creator wallet behavior and bonding curve status for Pump.fun tokens.",
-  keywords: ["solana", "web3", "rug pull", "pump.fun", "crypto", "scanner", "anti-scam"],
+  title: "Veritas | AI Crypto Scam Detection",
+  description: "AI-powered forensic analysis for Solana tokens. Detect rug pulls, serial scammers, and fake projects using Gemini 3 multimodal vision.",
+  keywords: ["solana", "web3", "rug pull", "crypto", "scanner", "anti-scam", "gemini", "ai"],
+  icons: {
+    icon: "/images/logo.png",
+    apple: "/images/logo.png",
+  },
 };
 
 export default function RootLayout({

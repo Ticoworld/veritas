@@ -169,11 +169,25 @@ export function TruthConsole() {
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#27272A]">
               <span className="text-[#52525B] text-xs">📸 Sources:</span>
               <div className="flex gap-2">
-                {result.truth.evidence.websiteScreenshot && (
-                  <span className="text-[#10B981] text-xs font-mono">Website ✓</span>
+                {result.truth.tokenProfile?.website && result.truth.evidence.websiteScreenshot && (
+                  <a 
+                    href={result.truth.tokenProfile.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#10B981] text-xs font-mono hover:underline cursor-pointer"
+                  >
+                    Website ✓
+                  </a>
                 )}
-                {result.truth.evidence.twitterScreenshot && (
-                  <span className="text-[#10B981] text-xs font-mono">Twitter ✓</span>
+                {result.truth.tokenProfile?.twitter && result.truth.evidence.twitterScreenshot && (
+                  <a 
+                    href={`https://twitter.com/${result.truth.tokenProfile.twitter.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#10B981] text-xs font-mono hover:underline cursor-pointer"
+                  >
+                    Twitter ✓
+                  </a>
                 )}
                 {result.truth.rugCheck && (
                   <span className="text-[#10B981] text-xs font-mono">Contract ✓</span>
@@ -193,6 +207,26 @@ export function TruthConsole() {
                   <li key={i} className="text-[#FCA5A5] text-sm flex items-start gap-2">
                     <span className="text-[#EF4444] mt-1">•</span>
                     {lie}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Creator History - Serial Rugger Detection */}
+          {result.truth.creatorHistory?.previousTokens && result.truth.creatorHistory.previousTokens.length > 0 && (
+            <div className="bg-[#0A0A0B] border border-[#78350F] rounded-sm p-4">
+              <h3 className="text-[#FCD34D] text-xs font-medium uppercase tracking-wide mb-3">
+                ⚠️ Creator&apos;s Other Tokens ({result.truth.creatorHistory.previousTokens.length})
+              </h3>
+              <ul className="space-y-2">
+                {result.truth.creatorHistory.previousTokens.slice(0, 5).map((token, i) => (
+                  <li key={i} className="text-[#A1A1AA] text-sm flex items-center gap-2">
+                    <span className="text-[#EAB308]">•</span>
+                    <span className="font-mono">{token.tokenName || token.mint.slice(0, 8) + '...'}</span>
+                    <span className="text-[#52525B] text-xs">
+                      {new Date(token.date).toLocaleDateString()}
+                    </span>
                   </li>
                 ))}
               </ul>

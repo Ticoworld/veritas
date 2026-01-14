@@ -5,9 +5,11 @@ export default function Home() {
     <main className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-8">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-black text-zinc-100 tracking-tight">
-          VERITAS
-        </h1>
+        <img 
+          src="/images/logo.png" 
+          alt="Veritas" 
+          className="h-12 mx-auto"
+        />
       </div>
 
       {/* Console */}
