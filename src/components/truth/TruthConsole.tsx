@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { TruthData } from "@/lib/api/truth";
-import type { VeritasJudgement } from "@/lib/ai/veritas";
 import { 
   Shield, 
   ShieldAlert, 
@@ -16,28 +14,95 @@ import {
   Percent,
   Lock,
   Unlock,
-  Terminal
+  Terminal,
+  Brain
 } from "lucide-react";
 import { CryptoLoader } from "@/components/ui/CryptoLoader";
 
 // =============================================================================
-// TYPES
+// TYPES (Updated for Unified API)
 // =============================================================================
 
 interface ScanResult {
-  truth: TruthData;
-  context: {
-    status: string;
-    flags: string[];
+  tokenAddress: string;
+  tokenName: string;
+  tokenSymbol: string;
+  
+  // Core verdict
+  trustScore: number;
+  verdict: "Safe" | "Caution" | "Danger";
+  summary: string;
+  criminalProfile: string;
+  
+  // Evidence
+  lies: string[];
+  evidence: string[];
+  analysis: string[];
+  visualAnalysis?: string;
+  
+  // Degen Commentary
+  degenComment: string;
+  
+  /** Thought summary from Gemini — Reasoning Trace for judges */
+  thoughtSummary?: string;
+  
+  // On-chain data
+  onChain: {
+    mintAuth: string | null;
+    freezeAuth: string | null;
+    supply: number;
+    decimals: number;
+    top10Percentage: number;
+    creatorPercentage: number;
+    isDumped: boolean;
+    isWhale: boolean;
   };
-  analysis: VeritasJudgement | null;
-  meta: {
-    analysisAvailable: boolean;
-    analysisError: string | null;
-    scanTimeMs: number;
-    scannedAt: string;
-    elephantMemory?: boolean;
+  
+  // Market data
+  market: {
+    liquidity: number;
+    volume24h: number;
+    marketCap: number;
+    buySellRatio: number;
+    ageInHours: number;
+    botActivity: string;
+    anomalies: string[];
+  } | null;
+  
+  // RugCheck audit
+  rugCheck: {
+    score: number;
+    risks: Array<{
+      name: string;
+      description: string;
+      level: string;
+      score: number;
+    }>;
+  } | null;
+  
+  // Creator history
+  creatorHistory: {
+    creatorAddress: string;
+    previousTokens: number;
+    isSerialLauncher: boolean;
   };
+  
+  // Social links
+  socials: {
+    website?: string;
+    twitter?: string;
+    telegram?: string;
+    discord?: string;
+  };
+  
+  // Metadata
+  elephantMemory: {
+    isKnownScammer: boolean;
+    previousFlags?: any;
+  };
+  
+  analyzedAt: string;
+  analysisTimeMs: number;
 }
 
 // =============================================================================
@@ -58,7 +123,7 @@ export function TruthConsole() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/scan", {
+      const response = await fetch("/api/analyze-unified", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: address.trim() }),
@@ -67,7 +132,7 @@ export function TruthConsole() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Scan failed");
+        throw new Error(data.error || "Analysis failed");
       }
 
       setResult(data.data);
@@ -145,33 +210,44 @@ export function TruthConsole() {
           {/* Verdict Section */}
           <div className="bg-[#0A0A0B] border border-[#27272A] rounded-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <VerdictBadge verdict={result.analysis?.verdict || "CAUTION"} />
-              {result.meta.elephantMemory && (
+              <VerdictBadge verdict={result.verdict.toUpperCase()} />
+              {result.elephantMemory?.isKnownScammer && (
                 <span className="text-[#FCA5A5] text-xs font-mono uppercase">
                   Known Criminal
                 </span>
               )}
             </div>
             
-            {result.analysis?.headline && (
-              <h2 className="text-[#FAFAFA] text-lg font-medium mb-2">
-                {result.analysis.headline}
-              </h2>
-            )}
+            <h2 className="text-[#FAFAFA] text-lg font-medium mb-2">
+              {result.criminalProfile}
+            </h2>
             
-            {result.analysis?.summary && (
-              <p className="text-[#A1A1AA] text-sm leading-relaxed">
-                {result.analysis.summary}
-              </p>
-            )}
+            <p className="text-[#A1A1AA] text-sm leading-relaxed">
+              {result.summary}
+            </p>
             
+            {/* Reasoning Trace — thought summary from Gemini (proves AI is thinking, not summarising) */}
+            {result.thoughtSummary && (
+              <details className="mt-4 pt-4 border-t border-[#27272A] group">
+                <summary className="flex items-center gap-2 cursor-pointer list-none text-[#71717A] hover:text-[#A1A1AA] text-xs font-mono uppercase tracking-wide">
+                  <Brain className="w-3.5 h-3.5" />
+                  <span>Reasoning Trace</span>
+                  <span className="text-[#52525B] group-open:hidden">▶</span>
+                  <span className="text-[#52525B] hidden group-open:inline">▼</span>
+                </summary>
+                <p className="mt-3 text-[#A1A1AA] text-sm font-mono leading-relaxed whitespace-pre-wrap">
+                  {result.thoughtSummary}
+                </p>
+              </details>
+            )}
+
             {/* Sources Analyzed Badge */}
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#27272A]">
               <span className="text-[#52525B] text-xs">📸 Sources:</span>
               <div className="flex gap-2">
-                {result.truth.tokenProfile?.website && result.truth.evidence.websiteScreenshot && (
+                {result.socials?.website && (
                   <a 
-                    href={result.truth.tokenProfile.website}
+                    href={result.socials.website}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#10B981] text-xs font-mono hover:underline cursor-pointer"
@@ -179,9 +255,9 @@ export function TruthConsole() {
                     Website ✓
                   </a>
                 )}
-                {result.truth.tokenProfile?.twitter && result.truth.evidence.twitterScreenshot && (
+                {result.socials?.twitter && (
                   <a 
-                    href={`https://twitter.com/${result.truth.tokenProfile.twitter.replace('@', '')}`}
+                    href={result.socials.twitter}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#10B981] text-xs font-mono hover:underline cursor-pointer"
@@ -189,21 +265,19 @@ export function TruthConsole() {
                     Twitter ✓
                   </a>
                 )}
-                {result.truth.rugCheck && (
-                  <span className="text-[#10B981] text-xs font-mono">Contract ✓</span>
-                )}
+                <span className="text-[#10B981] text-xs font-mono">On-chain ✓</span>
               </div>
             </div>
           </div>
 
           {/* Lies Detected */}
-          {result.analysis?.lies_detected && result.analysis.lies_detected.length > 0 && (
+          {result.lies && result.lies.length > 0 && (
             <div className="bg-[#0A0A0B] border border-[#7F1D1D] rounded-sm p-4">
               <h3 className="text-[#FCA5A5] text-xs font-medium uppercase tracking-wide mb-3">
                 Deception Detected
               </h3>
               <ul className="space-y-2">
-                {result.analysis.lies_detected.map((lie, i) => (
+                {result.lies.map((lie, i) => (
                   <li key={i} className="text-[#FCA5A5] text-sm flex items-start gap-2">
                     <span className="text-[#EF4444] mt-1">•</span>
                     {lie}
@@ -213,36 +287,28 @@ export function TruthConsole() {
             </div>
           )}
 
-          {/* Creator History - Serial Rugger Detection */}
-          {result.truth.creatorHistory?.previousTokens && result.truth.creatorHistory.previousTokens.length > 0 && (
+          {/* Creator History - Serial Launcher Detection */}
+          {result.creatorHistory?.isSerialLauncher && (
             <div className="bg-[#0A0A0B] border border-[#78350F] rounded-sm p-4">
               <h3 className="text-[#FCD34D] text-xs font-medium uppercase tracking-wide mb-3">
-                ⚠️ Creator&apos;s Other Tokens ({result.truth.creatorHistory.previousTokens.length})
+                ⚠️ Serial Launcher Detected ({result.creatorHistory.previousTokens} previous tokens)
               </h3>
-              <ul className="space-y-2">
-                {result.truth.creatorHistory.previousTokens.slice(0, 5).map((token, i) => (
-                  <li key={i} className="text-[#A1A1AA] text-sm flex items-center gap-2">
-                    <span className="text-[#EAB308]">•</span>
-                    <span className="font-mono">{token.tokenName || token.mint.slice(0, 8) + '...'}</span>
-                    <span className="text-[#52525B] text-xs">
-                      {new Date(token.date).toLocaleDateString()}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-[#FCD34D] text-sm">
+                This creator has launched {result.creatorHistory.previousTokens} other tokens.
+              </p>
             </div>
           )}
 
-          {/* Alerts */}
-          {result.context.flags.length > 0 && (
+          {/* Market Anomalies */}
+          {result.market?.anomalies && result.market.anomalies.length > 0 && (
             <div className="bg-[#0A0A0B] border border-[#78350F] rounded-sm p-4">
               <h3 className="text-[#FCD34D] text-xs font-medium uppercase tracking-wide mb-3">
-                Alerts
+                Market Anomalies
               </h3>
               <ul className="space-y-2">
-                {result.context.flags.map((flag, i) => (
+                {result.market.anomalies.map((anomaly, i) => (
                   <li key={i} className="text-[#FCD34D] text-sm">
-                    {flag}
+                    {anomaly}
                   </li>
                 ))}
               </ul>
@@ -254,79 +320,130 @@ export function TruthConsole() {
             {/* Large Cards */}
             <MetricCard
               icon={<Shield className="w-4 h-4" />}
-              label="Risk Score"
-              value={formatRiskLevel(result.truth.rugCheck?.score ?? 0)}
-              status={getRiskStatus(result.truth.rugCheck?.score ?? 0)}
+              label="Trust Score"
+              value={`${result.trustScore}/100`}
+              status={getTrustStatus(result.trustScore)}
               large
             />
             <MetricCard
               icon={<TrendingUp className="w-4 h-4" />}
               label="Market Cap"
-              value={`$${formatNumber(result.truth.marketMetrics?.marketCap || 0)}`}
+              value={`$${formatNumber(result.market?.marketCap || 0)}`}
               large
             />
           </div>
+
+          {/* RugCheck Score */}
+          {result.rugCheck && (
+            <div className="bg-[#0A0A0B] border border-[#27272A] rounded-sm p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-[#71717A]" />
+                  <span className="text-[#71717A] text-xs font-mono uppercase">RugCheck Audit</span>
+                </div>
+                <span className={`text-sm font-mono ${
+                  result.rugCheck.score <= 20 ? "text-[#22C55E]" :
+                  result.rugCheck.score <= 50 ? "text-[#EAB308]" :
+                  "text-[#EF4444]"
+                }`}>
+                  Risk: {result.rugCheck.score}/100
+                </span>
+              </div>
+              {result.rugCheck.risks.length > 0 && (
+                <ul className="space-y-1 mt-2">
+                  {result.rugCheck.risks.slice(0, 3).map((risk, i) => (
+                    <li key={i} className="text-[#A1A1AA] text-xs flex items-start gap-2">
+                      <span className={
+                        risk.level === "danger" ? "text-[#EF4444]" :
+                        risk.level === "warn" ? "text-[#EAB308]" :
+                        "text-[#71717A]"
+                      }>•</span>
+                      <span>{risk.name}</span>
+                    </li>
+                  ))}
+                  {result.rugCheck.risks.length > 3 && (
+                    <li className="text-[#52525B] text-xs ml-3">
+                      +{result.rugCheck.risks.length - 3} more risks
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Bento Grid - Secondary Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <MetricCard
               icon={<Droplets className="w-3.5 h-3.5" />}
               label="Liquidity"
-              value={`$${formatNumber(result.truth.marketMetrics?.liquidity || 0)}`}
+              value={`$${formatNumber(result.market?.liquidity || 0)}`}
             />
             <MetricCard
               icon={<Activity className="w-3.5 h-3.5" />}
               label="24h Vol"
-              value={`$${formatNumber(result.truth.marketMetrics?.volume24h || 0)}`}
+              value={`$${formatNumber(result.market?.volume24h || 0)}`}
             />
             <MetricCard
               icon={<Percent className="w-3.5 h-3.5" />}
-              label="LP Ratio"
-              value={calculateLPRatio(result.truth)}
+              label="Top 10%"
+              value={`${result.onChain.top10Percentage.toFixed(1)}%`}
+              status={result.onChain.top10Percentage > 60 ? "danger" : "safe"}
             />
             <MetricCard
               icon={<Bot className="w-3.5 h-3.5" />}
               label="Bot Activity"
-              value={result.truth.marketMetrics?.botActivity || "N/A"}
-              status={result.truth.marketMetrics?.botActivity === "Low" ? "safe" : "warning"}
+              value={result.market?.botActivity || "N/A"}
+              status={result.market?.botActivity === "Low" ? "safe" : "warning"}
             />
           </div>
 
           {/* Security Flags */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <SecurityCard
-              icon={result.truth.security.mintAuthorityEnabled ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              icon={result.onChain.mintAuth ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               label="Mint Authority"
-              enabled={result.truth.security.mintAuthorityEnabled}
+              enabled={!!result.onChain.mintAuth}
             />
             <SecurityCard
-              icon={result.truth.security.freezeAuthorityEnabled ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+              icon={result.onChain.freezeAuth ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               label="Freeze Authority"
-              enabled={result.truth.security.freezeAuthorityEnabled}
+              enabled={!!result.onChain.freezeAuth}
             />
           </div>
 
-          {/* Degen Comment */}
-          {result.analysis?.degen_comment && (
+          {/* Degen Comment - Featured */}
+          {result.degenComment && (
+            <div className="bg-[#0A0A0B] border border-[#27272A] rounded-sm p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Terminal className="w-4 h-4 text-[#22C55E]" />
+                <span className="text-[#22C55E] text-xs font-mono uppercase tracking-wide">Veritas Says</span>
+              </div>
+              <p className="text-[#FAFAFA] text-base font-mono leading-relaxed">
+                {result.degenComment}
+              </p>
+            </div>
+          )}
+
+          {/* Analysis Points */}
+          {result.analysis && result.analysis.length > 0 && (
             <div className="bg-[#0A0A0B] border border-[#27272A] rounded-sm p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Terminal className="w-3.5 h-3.5 text-[#22C55E]" />
-                <span className="text-[#22C55E] text-xs font-mono uppercase">Veritas</span>
+                <Terminal className="w-3.5 h-3.5 text-[#71717A]" />
+                <span className="text-[#71717A] text-xs font-mono uppercase">Forensic Analysis</span>
               </div>
-              <p className="text-[#A1A1AA] text-sm font-mono leading-relaxed">
-                {result.analysis.degen_comment}
-              </p>
+              <ul className="space-y-2">
+                {result.analysis.map((point, i) => (
+                  <li key={i} className="text-[#A1A1AA] text-sm font-mono leading-relaxed">
+                    • {point}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
           {/* Footer */}
           <div className="text-center text-[#52525B] text-xs font-mono pt-2">
-            Analyzed in {result.meta.scanTimeMs}ms
-            {!result.meta.analysisAvailable && (
-              <span className="text-[#EAB308] ml-2">
-                (AI unavailable: {result.meta.analysisError})
-              </span>
-            )}
+            Analyzed in {result.analysisTimeMs}ms
           </div>
         </div>
       )}
@@ -456,26 +573,11 @@ function formatNumber(num: number): string {
 }
 
 /**
- * Convert RugCheck cumulative score to risk level
- * RugCheck returns cumulative risk points (can be 1000+), not percentage
+ * Convert trust score (0-100) to status color
+ * Higher score = safer token
  */
-function formatRiskLevel(score: number): string {
-  if (score === 0) return "Unknown";
-  if (score <= 100) return "Low";
-  if (score <= 500) return "Medium";
-  if (score <= 2000) return "High";
-  return "Critical";
-}
-
-function getRiskStatus(score: number): "safe" | "warning" | "danger" {
-  if (score <= 100) return "safe";
-  if (score <= 500) return "warning";
+function getTrustStatus(score: number): "safe" | "warning" | "danger" {
+  if (score >= 70) return "safe";
+  if (score >= 40) return "warning";
   return "danger";
-}
-
-function calculateLPRatio(truth: TruthData): string {
-  const lp = truth.marketMetrics?.liquidity || 0;
-  const mc = truth.marketMetrics?.marketCap || 1;
-  const ratio = (lp / mc) * 100;
-  return `${ratio.toFixed(1)}%`;
 }

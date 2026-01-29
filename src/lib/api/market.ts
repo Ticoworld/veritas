@@ -130,8 +130,13 @@ export async function getMarketAnalysis(tokenAddress: string): Promise<MarketAna
     );
 
     // Extract pair creation time for token age
-    const pairCreatedAt = mainPair.pairCreatedAt ?? Date.now();
-    const ageInHours = (Date.now() - pairCreatedAt) / (1000 * 60 * 60);
+    // If missing, treat as brand new (0 hours = high risk, not 24h)
+    const pairCreatedAt = mainPair.pairCreatedAt ?? 0;
+    let ageInHours = 0;
+    if (mainPair.pairCreatedAt) {
+      const rawAge = (Date.now() - mainPair.pairCreatedAt) / (1000 * 60 * 60);
+      ageInHours = Math.max(0, rawAge); // Ensure non-negative (in case of future timestamps)
+    }
 
     console.log(`[Market Watcher] 🔍 Bot Activity: ${botActivity} | Age: ${ageInHours.toFixed(0)}h | Anomalies: ${anomalies.length}`);
 

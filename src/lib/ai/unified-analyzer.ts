@@ -4,8 +4,12 @@
  * Replaces the two-phase Scanner + Sherlock flow
  */
 
+import {
+  createPartFromBase64,
+  PartMediaResolutionLevel,
+  ThinkingLevel,
+} from "@google/genai";
 import { getGeminiClient, isGeminiAvailable } from "@/lib/gemini";
-import { TokenData } from "@/types";
 
 /**
  * Complete analysis result - unified verdict
@@ -27,8 +31,14 @@ export interface UnifiedAnalysisResult {
   // Visual analysis (if screenshot provided)
   visualAnalysis?: string;
   
+  // Degen Commentary - The Real Talk
+  degenComment: string; // Short, punchy, slang-filled take with emojis
+  
   // Metadata
   urlsAnalyzed?: string[];
+  
+  /** Thought summary from Gemini (includeThoughts: true) — reasoning trace for UI */
+  thoughtSummary?: string;
 }
 
 /**
@@ -63,6 +73,9 @@ export interface UnifiedAnalysisInput {
   // Screenshots for vision analysis (PRIMARY evidence source)
   websiteScreenshot?: { base64: string; mimeType: string };
   twitterScreenshot?: { base64: string; mimeType: string };
+
+  // Pump.fun context (mint ends with "pump")
+  isPumpFun?: boolean;
 }
 
 /**
@@ -89,6 +102,14 @@ function buildUnifiedPrompt(data: UnifiedAnalysisInput, hasScreenshot: boolean):
 - Buy/Sell Ratio: ${data.marketData.buySellRatio.toFixed(2)}:1
 ` : '';
 
+  const pumpFunSection = data.isPumpFun ? `
+## 🟢 PUMP.FUN TOKEN (Standard bonding-curve contract)
+This mint ends in "pump" — it is a **Pump.fun launch**. The contract is the same standardized bonding-curve for all Pump.fun tokens.
+- **Assume contract safety is HIGH.** Do not flag "honeypot" or generic contract risks.
+- **Focus ~90% of your analysis on:** Dev holdings (did they dump?), top-holder concentration, bundle/sniper patterns, and social vibes.
+- Low-effort websites are common for meme coins; judge memes by community and distribution, not by "professional" site quality.
+` : '';
+
   // Vision instructions - CRITICAL for when URL Context fails
   const visionInstructions = hasScreenshot ? `
 ## ⚠️ CRITICAL: YOUR PRIMARY TASK IS TO READ THE SCREENSHOTS
@@ -111,7 +132,11 @@ Go through the website screenshot FROM TOP TO BOTTOM and list out EVERY section:
 ` : '';
 
   return `
-You are **SHERLOCK HOLMES**, the world's greatest detective specializing in cryptocurrency fraud.
+You are **VERITAS**, a forensic crypto investigator who combines the deductive reasoning of Sherlock Holmes with the street smarts of a veteran degen who has survived 1,000 rug pulls.
+
+Your dual nature:
+- **ANALYZE like a scientist:** Use logic, cross-examination, and forensic evidence to find lies and contradictions.
+- **SPEAK like a degen:** Give your final commentary in short, punchy sentences with slang and emojis. Keep it real.
 
 Your mission: Investigate this token and **FIND LIES, CONTRADICTIONS, and RED FLAGS**.
 
@@ -125,6 +150,7 @@ Your mission: Investigate this token and **FIND LIES, CONTRADICTIONS, and RED FL
 - Top 10 Holders: ${data.top10Percentage.toFixed(2)}% of supply ${data.top10Percentage > 50 ? "⚠️ HIGH CONCENTRATION" : ""}
 - Creator Status: ${creatorStatus}
 ${marketSection}
+${pumpFunSection}
 ${visionInstructions}
 
 ## WEBSITES (URLs provided, but they will likely fail - USE SCREENSHOTS)
@@ -167,7 +193,7 @@ Respond with ONLY this JSON:
 {
   "trustScore": <0-100, where 100 is safest>,
   "verdict": "<Safe | Caution | Danger>",
-  "summary": "<One paragraph investigation summary>",
+  "summary": "<One paragraph investigation summary - professional tone>",
   "criminalProfile": "<Profile like 'The Low-Effort Launcher' or 'The Legitimate Builder'>",
   "lies": [
     "<Specific lie found, if any>",
@@ -183,7 +209,8 @@ Respond with ONLY this JSON:
     "<Market analysis>",
     "<Website assessment>"
   ],
-  "visualAnalysis": "<What you SAW in the screenshot - be specific about text, buttons, design>"
+  "visualAnalysis": "<What you SAW in the screenshot - be specific about text, buttons, design>",
+  "degenComment": "<NOW SWITCH TO DEGEN MODE: 2-3 short sentences. Use slang. Use emojis. Be brutally honest. Give street-level advice. Examples: 'Ser this is a honeypot fr. You can buy but can't sell 🚫' or 'Template site, dev dumped, it's giving rug energy ngl' or 'Actually looks solid. Low risk, just volatile af 📊'>"
 }
 
 # SCORING RULES
@@ -195,6 +222,7 @@ Respond with ONLY this JSON:
 - Template/low-effort site = -15 from trust score
 - Healthy on-chain + minimal website = 45-60 trust score (Caution)
 - Don't give 100% to meme coins with template sites!
+${data.isPumpFun ? '- PUMP.FUN: Ignore honeypot/contract risk. Score mainly on dev holdings, distribution, and social vibes.' : ''}
 `;
 }
 
@@ -231,6 +259,7 @@ function parseUnifiedResponse(text: string): UnifiedAnalysisResult | null {
       evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
       analysis: Array.isArray(parsed.analysis) ? parsed.analysis : [],
       visualAnalysis: parsed.visualAnalysis,
+      degenComment: parsed.degenComment || "Do your own research, anon. 🔍",
     };
   } catch (error) {
     console.error("[Unified Analyzer] Failed to parse response:", error);
@@ -260,56 +289,76 @@ export async function runUnifiedAnalysis(
   const hasScreenshot = !!(data.websiteScreenshot || data.twitterScreenshot);
   const prompt = buildUnifiedPrompt(data, hasScreenshot);
   
-  // Build content parts - include all screenshots for vision analysis
+  // Build content parts — text first, then images with media_resolution medium (speed + vision)
   const contentParts: any[] = [{ text: prompt }];
   
-  // Add website screenshot if provided
   if (data.websiteScreenshot) {
-    console.log("[Unified Analyzer] 📸 Including WEBSITE screenshot for vision analysis");
-    contentParts.push({
-      inlineData: {
-        mimeType: data.websiteScreenshot.mimeType,
-        data: data.websiteScreenshot.base64
-      }
-    });
+    console.log("[Unified Analyzer] 📸 Including WEBSITE screenshot (media_resolution: medium)");
+    contentParts.push(
+      createPartFromBase64(
+        data.websiteScreenshot.base64,
+        data.websiteScreenshot.mimeType,
+        PartMediaResolutionLevel.MEDIA_RESOLUTION_MEDIUM
+      )
+    );
   }
   
-  // Add Twitter screenshot if provided (since URL Context often fails on Twitter)
   if (data.twitterScreenshot) {
-    console.log("[Unified Analyzer] 🐦 Including TWITTER screenshot for vision analysis");
-    contentParts.push({
-      inlineData: {
-        mimeType: data.twitterScreenshot.mimeType,
-        data: data.twitterScreenshot.base64
-      }
-    });
+    console.log("[Unified Analyzer] 🐦 Including TWITTER screenshot (media_resolution: medium)");
+    contentParts.push(
+      createPartFromBase64(
+        data.twitterScreenshot.base64,
+        data.twitterScreenshot.mimeType,
+        PartMediaResolutionLevel.MEDIA_RESOLUTION_MEDIUM
+      )
+    );
   }
 
   try {
-    console.log("[Unified Analyzer] 🔍 Calling Gemini with URL Context + Google Search...");
+    console.log("[Unified Analyzer] 🔍 Calling Gemini (thinking: medium, includeThoughts) + URL Context + Google Search...");
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: [{ role: 'user', parts: contentParts }],
+      model: "gemini-3-flash-preview",
+      contents: [{ role: "user", parts: contentParts }],
       config: {
         tools: [
           { urlContext: {} },
-          { googleSearch: {} }
-        ]
-      }
+          { googleSearch: {} },
+        ],
+        thinkingConfig: {
+          includeThoughts: true,
+          thinkingLevel: ThinkingLevel.MEDIUM,
+        },
+      },
     });
     
-    const text = response.text || "";
-    console.log("[Unified Analyzer] ✅ Response received, parsing...");
+    // Split thought summary vs main answer (for JSON parsing + Reasoning Trace UI)
+    let mainText = "";
+    let thoughtSummary = "";
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      const t = (part as { text?: string; thought?: boolean }).text ?? "";
+      if (!t) continue;
+      if ((part as { thought?: boolean }).thought) {
+        thoughtSummary += t;
+      } else {
+        mainText += t;
+      }
+    }
+    if (!mainText && response.text) mainText = response.text;
     
-    // Log URL context metadata if available
+    console.log("[Unified Analyzer] ✅ Response received, parsing...");
+    if (thoughtSummary) {
+      console.log("[Unified Analyzer] 🧠 Thought summary captured for Reasoning Trace");
+    }
+    
     if (response.candidates?.[0]?.urlContextMetadata) {
       console.log("[Unified Analyzer] 🌐 URLs analyzed:", response.candidates[0].urlContextMetadata);
     }
     
-    const result = parseUnifiedResponse(text);
-    
+    const result = parseUnifiedResponse(mainText);
     if (result) {
+      result.thoughtSummary = thoughtSummary || undefined;
       console.log(`[Unified Analyzer] 🎯 Verdict: ${result.verdict} (Trust: ${result.trustScore})`);
       console.log(`[Unified Analyzer] 👤 Profile: ${result.criminalProfile}`);
     }

@@ -34,13 +34,25 @@ export async function getCreatorHistory(
   creatorAddress: string
 ): Promise<CreatorTokenHistory[]> {
   try {
+    const raw = (creatorAddress || "").trim().toLowerCase();
+    if (!raw || raw === "unknown" || raw === "null") {
+      console.log("[Historian] No creator address (Unknown/null) — skipping history");
+      return [];
+    }
+
+    let pubkey: PublicKey;
+    try {
+      pubkey = new PublicKey(creatorAddress);
+    } catch {
+      console.warn("[Historian] Invalid creator public key — skipping history");
+      return [];
+    }
+
     console.log(`[Historian] 🔍 Investigating creator: ${creatorAddress.slice(0, 8)}...`);
     
-    const pubkey = new PublicKey(creatorAddress);
-    
-    // Fetch last 50 transaction signatures for this wallet
+    // Fetch last 100 transaction signatures for this wallet (increased for better detection)
     const signatures = await connection.getSignaturesForAddress(pubkey, {
-      limit: 50,
+      limit: 100,
     });
     
     if (signatures.length === 0) {
@@ -53,8 +65,8 @@ export async function getCreatorHistory(
     const createdTokens: CreatorTokenHistory[] = [];
     
     // Fetch transactions ONE AT A TIME (Helius free tier doesn't support batch)
-    // Only check first 10 to be efficient
-    const signaturestoCheck = signatures.slice(0, 10);
+    // Check first 50 transactions to catch serial scammers (increased from 10)
+    const signaturestoCheck = signatures.slice(0, 50);
     
     for (let i = 0; i < signaturestoCheck.length; i++) {
       const sig = signaturestoCheck[i];
