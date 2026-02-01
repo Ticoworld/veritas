@@ -20,6 +20,11 @@ build/
 *.swp
 *.swo
 
+# Cursor / DevGhost
+.cursorignore
+.devghost.json
+.devghost/
+
 # OS
 .DS_Store
 Thumbs.db
