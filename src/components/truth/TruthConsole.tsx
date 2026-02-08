@@ -18,6 +18,7 @@ import {
   Brain
 } from "lucide-react";
 import { CryptoLoader } from "@/components/ui/CryptoLoader";
+import type { ScammerRecord } from "@/lib/db/elephant";
 
 // =============================================================================
 // TYPES (Updated for Unified API)
@@ -98,7 +99,7 @@ interface ScanResult {
   // Metadata
   elephantMemory: {
     isKnownScammer: boolean;
-    previousFlags?: any;
+    previousFlags?: ScammerRecord;
   };
   
   analyzedAt: string;
@@ -154,19 +155,27 @@ export function TruthConsole() {
       {/* Search Input */}
       {!result && !loading && (
         <div className="space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#18181B] border border-[#27272A] text-[#A1A1AA] text-xs font-mono uppercase tracking-wide">
+              Solana token
+            </span>
+          </div>
           <div className="relative">
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleScan()}
-              placeholder="Enter contract address..."
+              placeholder="Paste token contract address (from DexScreener, Raydium, Pump.fun...)"
               disabled={loading}
               className="w-full px-4 py-3 bg-[#0A0A0B] border border-[#27272A] rounded-sm
                          text-[#FAFAFA] placeholder-[#52525B] font-mono text-sm
                          focus:outline-none focus:border-[#3F3F46]
                          disabled:opacity-50 transition-colors"
             />
+            <p className="mt-1.5 text-[#52525B] text-xs">
+              Not your wallet address — use the token&apos;s contract/mint address
+            </p>
           </div>
 
           <button
@@ -270,22 +279,34 @@ export function TruthConsole() {
             </div>
           </div>
 
-          {/* Lies Detected */}
-          {result.lies && result.lies.length > 0 && (
-            <div className="bg-[#0A0A0B] border border-[#7F1D1D] rounded-sm p-4">
-              <h3 className="text-[#FCA5A5] text-xs font-medium uppercase tracking-wide mb-3">
-                Deception Detected
-              </h3>
-              <ul className="space-y-2">
-                {result.lies.map((lie, i) => (
-                  <li key={i} className="text-[#FCA5A5] text-sm flex items-start gap-2">
-                    <span className="text-[#EF4444] mt-1">•</span>
-                    {lie}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Deception Detected — red when lies found, neutral/green when "None identified" */}
+          {result.lies && result.lies.length > 0 && (() => {
+            const text = result.lies.join(" ").toLowerCase();
+            const isNoneIdentified = /^(none|no\s|no explicit|no deception|no lies)/i.test(result.lies[0]?.trim() ?? "") ||
+              /none identified|no explicit lies|no deception detected/.test(text);
+            const isGood = isNoneIdentified;
+            return (
+              <div className={`rounded-sm p-4 border ${
+                isGood ? "bg-[#0A0A0B] border-[#27272A]" : "bg-[#0A0A0B] border-[#7F1D1D]"
+              }`}>
+                <h3 className={`text-xs font-medium uppercase tracking-wide mb-3 ${
+                  isGood ? "text-[#22C55E]" : "text-[#FCA5A5]"
+                }`}>
+                  {isGood ? "No Deception Detected" : "Deception Detected"}
+                </h3>
+                <ul className="space-y-2">
+                  {result.lies.map((lie, i) => (
+                    <li key={i} className={`text-sm flex items-start gap-2 ${
+                      isGood ? "text-[#A1A1AA]" : "text-[#FCA5A5]"
+                    }`}>
+                      <span className={`mt-1 ${isGood ? "text-[#22C55E]" : "text-[#EF4444]"}`}>•</span>
+                      {lie}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* Creator History - Serial Launcher Detection */}
           {result.creatorHistory?.isSerialLauncher && (
