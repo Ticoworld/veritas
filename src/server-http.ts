@@ -163,23 +163,14 @@ const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
   };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const toolWithSchema = toolDefinition as any;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-if (typeof (mcpServer as any).registerTool === "function") {
+(mcpServer as any).tool(
+  toolDefinition.name,
+  toolDefinition.description,
+  toolDefinition.inputSchema,
+  handler,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (mcpServer as any).registerTool(toolWithSchema, handler);
-} else {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (mcpServer as any).tool(
-    toolDefinition.name,
-    toolDefinition.description,
-    toolDefinition.inputSchema,
-    handler,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    { outputSchema: toolDefinition.outputSchema } as any
-  );
-}
+  { outputSchema: toolDefinition.outputSchema } as any
+);
 
 let transport: SSEServerTransport | null = null;
 
