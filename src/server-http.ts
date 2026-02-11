@@ -1,8 +1,11 @@
 import express from "express";
 import cors from "cors";
-import { z } from "zod/v3";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { VeritasInvestigator } from "@/lib/services/VeritasInvestigator";
 
 const app = express();
@@ -138,58 +141,71 @@ const toolDefinition = {
   name: "analyze_token",
   description:
     "A forensic intelligence engine for Solana. YOU MUST PASS THE 'tokenAddress' ARGUMENT.",
-  inputSchema: z.object({
-    tokenAddress: z
-      .string()
-      .describe(
-        "The exact Solana token mint address to analyze (e.g., 993wscPZQkXJ28K9xNn1a5C1Z1k1111111111111111)"
-      ),
-  }),
   outputSchema,
 } as const;
 
-const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
-    try {
-      if (!tokenAddress || typeof tokenAddress !== "string") {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify({ error: "tokenAddress argument is required" }),
+// Raw MCP handlers to avoid Zod serialization issues
+mcpServer.server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: [
+      {
+        name: toolDefinition.name,
+        description: toolDefinition.description,
+        inputSchema: {
+          type: "object",
+          properties: {
+            tokenAddress: {
+              type: "string",
+              description:
+                "The exact Solana token mint address to analyze (e.g., 57KoEZXm2mJwFqbB7fvcgZmmjc9mivFmKhXA45H3pump)",
             },
-          ],
-          structuredContent: { error: "tokenAddress argument is required" },
-          isError: true,
-        };
-      }
-      const investigator = new VeritasInvestigator();
-      const result = await investigator.investigate(tokenAddress);
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-        structuredContent: result,
-      };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
-    }
+          },
+          required: ["tokenAddress"],
+        },
+        outputSchema: toolDefinition.outputSchema,
+      },
+    ],
   };
+});
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(mcpServer as any).tool(
-  toolDefinition.name,
-  toolDefinition.description,
-  toolDefinition.inputSchema,
-  handler,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { outputSchema: toolDefinition.outputSchema } as any
-);
+mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name !== toolDefinition.name) {
+    throw new Error("Tool not found");
+  }
+
+  const tokenAddress = request.params.arguments?.tokenAddress as string | undefined;
+  if (!tokenAddress || typeof tokenAddress !== "string") {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({ error: "tokenAddress argument is required" }),
+        },
+      ],
+      structuredContent: { error: "tokenAddress argument is required" },
+      isError: true,
+    };
+  }
+
+  try {
+    const investigator = new VeritasInvestigator();
+    const result = await investigator.investigate(tokenAddress);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      structuredContent: result,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+      structuredContent: { error: message },
+      isError: true,
+    };
+  }
+});
 
 console.log("[MCP HTTP] Tool schema loaded:", {
   name: toolDefinition.name,
-  inputSchema: toolDefinition.inputSchema,
   outputSchema: toolDefinition.outputSchema,
 });
 
