@@ -12,7 +12,7 @@ import { config } from "dotenv";
 config(); // .env
 config({ path: ".env.local" }); // Next.js env (overrides)
 
-import { z } from "zod";
+import { z } from "zod/v3";
 import { VeritasInvestigator } from "@/lib/services/VeritasInvestigator";
 
 async function main() {
