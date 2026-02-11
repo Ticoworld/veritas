@@ -150,6 +150,18 @@ const toolDefinition = {
 
 const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
     try {
+      if (!tokenAddress || typeof tokenAddress !== "string") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ error: "tokenAddress argument is required" }),
+            },
+          ],
+          structuredContent: { error: "tokenAddress argument is required" },
+          isError: true,
+        };
+      }
       const investigator = new VeritasInvestigator();
       const result = await investigator.investigate(tokenAddress);
       return {
@@ -174,6 +186,12 @@ const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { outputSchema: toolDefinition.outputSchema } as any
 );
+
+console.log("[MCP HTTP] Tool schema loaded:", {
+  name: toolDefinition.name,
+  inputSchema: toolDefinition.inputSchema,
+  outputSchema: toolDefinition.outputSchema,
+});
 
 let transport: SSEServerTransport | null = null;
 
