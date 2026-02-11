@@ -15,11 +15,136 @@ const mcpServer = new McpServer({
   version: "1.0.0",
 });
 
+const analyzeTokenTool = {
+  title: "Analyze Token",
+  description: "Analyze a Solana token for fraud risk using Veritas.",
+  inputSchema: z.object({
+    tokenAddress: z.string().describe("Solana token mint address to analyze for fraud risk"),
+  }),
+  outputSchema: {
+    type: "object",
+    properties: {
+      trustScore: { type: "number" },
+      verdict: { type: "string", enum: ["Safe", "Caution", "Danger"] },
+      summary: { type: "string" },
+      criminalProfile: { type: "string" },
+      lies: { type: "array", items: { type: "string" } },
+      evidence: { type: "array", items: { type: "string" } },
+      analysis: { type: "array", items: { type: "string" } },
+      visualAnalysis: { type: "string" },
+      degenComment: { type: "string" },
+      thoughtSummary: { type: "string" },
+      tokenAddress: { type: "string" },
+      tokenName: { type: "string" },
+      tokenSymbol: { type: "string" },
+      onChain: {
+        type: "object",
+        properties: {
+          mintAuth: { type: ["string", "null"] },
+          freezeAuth: { type: ["string", "null"] },
+          supply: { type: "number" },
+          decimals: { type: "number" },
+          top10Percentage: { type: "number" },
+          creatorPercentage: { type: "number" },
+          isDumped: { type: "boolean" },
+          isWhale: { type: "boolean" },
+        },
+        required: [
+          "mintAuth",
+          "freezeAuth",
+          "supply",
+          "decimals",
+          "top10Percentage",
+          "creatorPercentage",
+          "isDumped",
+          "isWhale",
+        ],
+      },
+      market: {
+        type: ["object", "null"],
+        properties: {
+          liquidity: { type: "number" },
+          volume24h: { type: "number" },
+          marketCap: { type: "number" },
+          buySellRatio: { type: "number" },
+          ageInHours: { type: "number" },
+          botActivity: { type: "string" },
+          anomalies: { type: "array", items: { type: "string" } },
+        },
+      },
+      rugCheck: {
+        type: ["object", "null"],
+        properties: {
+          score: { type: "number" },
+          risks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                description: { type: "string" },
+                level: { type: "string" },
+                score: { type: "number" },
+              },
+              required: ["name", "description", "level", "score"],
+            },
+          },
+        },
+      },
+      creatorHistory: {
+        type: "object",
+        properties: {
+          creatorAddress: { type: "string" },
+          previousTokens: { type: "number" },
+          isSerialLauncher: { type: "boolean" },
+        },
+        required: ["creatorAddress", "previousTokens", "isSerialLauncher"],
+      },
+      socials: {
+        type: "object",
+        properties: {
+          website: { type: "string" },
+          twitter: { type: "string" },
+          telegram: { type: "string" },
+          discord: { type: "string" },
+        },
+      },
+      elephantMemory: {
+        type: "object",
+        properties: {
+          isKnownScammer: { type: "boolean" },
+          previousFlags: { type: ["object", "null"] },
+        },
+        required: ["isKnownScammer"],
+      },
+      analyzedAt: { type: "string" },
+      analysisTimeMs: { type: "number" },
+    },
+    required: [
+      "trustScore",
+      "verdict",
+      "summary",
+      "criminalProfile",
+      "lies",
+      "evidence",
+      "analysis",
+      "degenComment",
+      "tokenAddress",
+      "tokenName",
+      "tokenSymbol",
+      "onChain",
+      "creatorHistory",
+      "socials",
+      "elephantMemory",
+      "analyzedAt",
+      "analysisTimeMs",
+    ],
+  },
+} as any;
+
 mcpServer.tool(
   "analyze_token",
-  {
-    tokenAddress: z.string().describe("Solana token mint address to analyze for fraud risk"),
-  },
+  analyzeTokenTool,
   async ({ tokenAddress }) => {
     try {
       const investigator = new VeritasInvestigator();
