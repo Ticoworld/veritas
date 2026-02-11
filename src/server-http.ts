@@ -36,7 +36,11 @@ const outputSchema = {
     verdict: { type: "string", enum: ["Safe", "Caution", "Danger"] },
     summary: { type: "string" },
     criminalProfile: { type: "string" },
-    lies: { type: "array", items: { type: "string" } },
+    lies: {
+      type: "array",
+      description: "Contains at least one entry (e.g., 'None detected')",
+      items: { type: "string" },
+    },
     evidence: { type: "array", items: { type: "string" } },
     analysis: { type: "array", items: { type: "string" } },
     visualAnalysis: { type: ["string", "null"] },
@@ -277,8 +281,11 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ? rugCheck.risks.map((risk) => risk.name).join("; ")
           : "None detected",
     };
+    const normalizedLies =
+      result.lies && result.lies.length > 0 ? result.lies : ["None detected"];
     const mcpResult = {
       ...result,
+      lies: normalizedLies,
       onChain: {
         ...onChain,
         mintAuth: onChain.mintAuth ? "Enabled" : "Disabled",
