@@ -18,6 +18,17 @@ const mcpServer = new McpServer({
   version: "1.0.0",
 });
 
+// Ensure tools capability is enabled for raw handlers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const serverAny = mcpServer.server as any;
+if (typeof serverAny.setCapabilities === "function") {
+  serverAny.setCapabilities({ tools: { listChanged: false } });
+} else {
+  serverAny.capabilities = serverAny.capabilities ?? {};
+  serverAny.capabilities.tools = { listChanged: false };
+  serverAny._capabilities = serverAny.capabilities;
+}
+
 const outputSchema = {
   type: "object",
   properties: {
