@@ -48,8 +48,8 @@ const outputSchema = {
     onChain: {
       type: "object",
       properties: {
-        mintAuth: { type: ["string", "null"] },
-        freezeAuth: { type: ["string", "null"] },
+        mintAuth: { type: "string", enum: ["Enabled", "Disabled"] },
+        freezeAuth: { type: "string", enum: ["Enabled", "Disabled"] },
         mintAuthStatus: { type: "string", enum: ["Enabled", "Disabled"] },
         freezeAuthStatus: { type: "string", enum: ["Enabled", "Disabled"] },
         supply: { type: "number" },
@@ -73,7 +73,7 @@ const outputSchema = {
       ],
     },
     market: {
-      type: ["object", "null"],
+      type: "object",
       properties: {
         liquidity: { type: "number" },
         volume24h: { type: "number" },
@@ -84,6 +84,7 @@ const outputSchema = {
         anomalies: { type: "array", items: { type: "string" } },
       },
     },
+    marketAvailable: { type: "boolean" },
     rugCheck: {
       type: ["object", "null"],
       properties: {
@@ -145,6 +146,8 @@ const outputSchema = {
     "tokenName",
     "tokenSymbol",
     "onChain",
+    "market",
+    "marketAvailable",
     "creatorHistory",
     "socials",
     "elephantMemory",
@@ -206,13 +209,27 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const investigator = new VeritasInvestigator();
     const result = await investigator.investigate(tokenAddress);
     const onChain = result.onChain;
+    const marketAvailable = result.market !== null;
+    const market = result.market ?? {
+      liquidity: 0,
+      volume24h: 0,
+      marketCap: 0,
+      buySellRatio: 0,
+      ageInHours: 0,
+      botActivity: "Unknown",
+      anomalies: [],
+    };
     const mcpResult = {
       ...result,
       onChain: {
         ...onChain,
+        mintAuth: onChain.mintAuth ? "Enabled" : "Disabled",
+        freezeAuth: onChain.freezeAuth ? "Enabled" : "Disabled",
         mintAuthStatus: onChain.mintAuth ? "Enabled" : "Disabled",
         freezeAuthStatus: onChain.freezeAuth ? "Enabled" : "Disabled",
       },
+      market,
+      marketAvailable,
     };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
