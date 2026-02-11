@@ -152,6 +152,7 @@ const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
       const result = await investigator.investigate(tokenAddress);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        structuredContent: result,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
