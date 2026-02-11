@@ -50,6 +50,8 @@ const outputSchema = {
       properties: {
         mintAuth: { type: ["string", "null"] },
         freezeAuth: { type: ["string", "null"] },
+        mintAuthStatus: { type: "string", enum: ["Enabled", "Disabled"] },
+        freezeAuthStatus: { type: "string", enum: ["Enabled", "Disabled"] },
         supply: { type: "number" },
         decimals: { type: "number" },
         top10Percentage: { type: "number" },
@@ -60,6 +62,8 @@ const outputSchema = {
       required: [
         "mintAuth",
         "freezeAuth",
+        "mintAuthStatus",
+        "freezeAuthStatus",
         "supply",
         "decimals",
         "top10Percentage",
@@ -201,9 +205,18 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     const investigator = new VeritasInvestigator();
     const result = await investigator.investigate(tokenAddress);
+    const onChain = result.onChain;
+    const mcpResult = {
+      ...result,
+      onChain: {
+        ...onChain,
+        mintAuthStatus: onChain.mintAuth ? "Enabled" : "Disabled",
+        freezeAuthStatus: onChain.freezeAuth ? "Enabled" : "Disabled",
+      },
+    };
     return {
-      content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
-      structuredContent: result,
+      content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
+      structuredContent: mcpResult,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
