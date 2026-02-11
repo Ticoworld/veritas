@@ -135,14 +135,15 @@ const outputSchema = {
 } as const;
 const toolDefinition = {
   name: "analyze_token",
-  description: "Analyze a Solana token for fraud risk using Veritas.",
-  inputSchema: {
-    type: "object",
-    properties: {
-      tokenAddress: { type: "string", description: "Solana token mint address" },
-    },
-    required: ["tokenAddress"],
-  },
+  description:
+    "A forensic intelligence engine for Solana. YOU MUST PASS THE 'tokenAddress' ARGUMENT.",
+  inputSchema: z.object({
+    tokenAddress: z
+      .string()
+      .describe(
+        "The exact Solana token mint address to analyze (e.g., 993wscPZQkXJ28K9xNn1a5C1Z1k1111111111111111)"
+      ),
+  }),
   outputSchema,
 } as const;
 
@@ -164,15 +165,13 @@ const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
   };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(mcpServer as any).registerTool(
+(mcpServer as any).tool(
   toolDefinition.name,
-  {
-    title: "Analyze Token",
-    description: toolDefinition.description,
-    inputSchema: toolDefinition.inputSchema,
-    outputSchema: toolDefinition.outputSchema,
-  } as any,
-  handler
+  toolDefinition.description,
+  toolDefinition.inputSchema,
+  handler,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  { outputSchema: toolDefinition.outputSchema } as any
 );
 
 let transport: SSEServerTransport | null = null;
