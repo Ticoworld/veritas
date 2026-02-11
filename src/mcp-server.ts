@@ -1,7 +1,7 @@
 /**
  * Veritas MCP Server - "Veritas-Intelligence"
- * Standalone entry point for Context Protocol grant.
- * Exposes analyze_token tool; uses stdio transport.
+ * Standalone entry point for local MCP testing (stdio).
+ * Remote Context Protocol endpoint is now /api/mcp (HTTP/SSE).
  *
  * Run: npm run mcp   OR   npx tsx src/mcp-server.ts
  * Configure in Claude Desktop etc. via command + args.
