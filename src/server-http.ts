@@ -164,13 +164,15 @@ const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
   };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(mcpServer as any).tool(
+(mcpServer as any).registerTool(
   toolDefinition.name,
-  toolDefinition.description,
-  toolDefinition.inputSchema,
-  handler,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  { outputSchema: toolDefinition.outputSchema } as any
+  {
+    title: "Analyze Token",
+    description: toolDefinition.description,
+    inputSchema: toolDefinition.inputSchema,
+    outputSchema: toolDefinition.outputSchema,
+  } as any,
+  handler
 );
 
 let transport: SSEServerTransport | null = null;
