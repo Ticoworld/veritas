@@ -39,9 +39,9 @@ const outputSchema = {
     lies: { type: "array", items: { type: "string" } },
     evidence: { type: "array", items: { type: "string" } },
     analysis: { type: "array", items: { type: "string" } },
-    visualAnalysis: { type: "string" },
+    visualAnalysis: { type: ["string", "null"] },
     degenComment: { type: "string" },
-    thoughtSummary: { type: "string" },
+    thoughtSummary: { type: ["string", "null"] },
     tokenAddress: { type: "string" },
     tokenName: { type: "string" },
     tokenSymbol: { type: "string" },
@@ -111,10 +111,10 @@ const outputSchema = {
     socials: {
       type: "object",
       properties: {
-        website: { type: "string" },
-        twitter: { type: "string" },
-        telegram: { type: "string" },
-        discord: { type: "string" },
+        website: { type: ["string", "null"] },
+        twitter: { type: ["string", "null"] },
+        telegram: { type: ["string", "null"] },
+        discord: { type: ["string", "null"] },
       },
     },
     elephantMemory: {
