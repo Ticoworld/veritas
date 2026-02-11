@@ -81,16 +81,25 @@ const outputSchema = {
         buySellRatio: { type: "number" },
         ageInHours: { type: "number" },
         botActivity: { type: "string" },
-        anomalies: { type: "array", items: { type: "string" } },
+        anomalies: {
+          type: "array",
+          description: "Empty array when no anomalies detected.",
+          items: { type: "string" },
+        },
+        anomaliesSummary: {
+          type: "string",
+          description: "Human-readable summary; 'None detected' when empty.",
+        },
       },
     },
     marketAvailable: { type: "boolean" },
     rugCheck: {
-      type: ["object", "null"],
+      type: "object",
       properties: {
         score: { type: "number" },
         risks: {
           type: "array",
+          description: "Empty array when no risks detected.",
           items: {
             type: "object",
             properties: {
@@ -102,8 +111,13 @@ const outputSchema = {
             required: ["name", "description", "level", "score"],
           },
         },
+        risksSummary: {
+          type: "string",
+          description: "Human-readable summary; 'None detected' when empty.",
+        },
       },
     },
+    rugCheckAvailable: { type: "boolean" },
     creatorHistory: {
       type: "object",
       properties: {
@@ -148,6 +162,8 @@ const outputSchema = {
     "onChain",
     "market",
     "marketAvailable",
+    "rugCheck",
+    "rugCheckAvailable",
     "creatorHistory",
     "socials",
     "elephantMemory",
@@ -218,6 +234,29 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       ageInHours: 0,
       botActivity: "Unknown",
       anomalies: [],
+      anomaliesSummary: "None detected",
+    };
+    const rugCheckAvailable = result.rugCheck !== null;
+    const rugCheck = result.rugCheck ?? {
+      score: 0,
+      risks: [],
+      risksSummary: "None detected",
+    };
+    const normalizedMarket = {
+      ...market,
+      anomalies: market.anomalies ?? [],
+      anomaliesSummary:
+        market.anomalies && market.anomalies.length > 0
+          ? market.anomalies.join("; ")
+          : "None detected",
+    };
+    const normalizedRugCheck = {
+      ...rugCheck,
+      risks: rugCheck.risks ?? [],
+      risksSummary:
+        rugCheck.risks && rugCheck.risks.length > 0
+          ? rugCheck.risks.map((risk) => risk.name).join("; ")
+          : "None detected",
     };
     const mcpResult = {
       ...result,
@@ -228,8 +267,10 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
         mintAuthStatus: onChain.mintAuth ? "Enabled" : "Disabled",
         freezeAuthStatus: onChain.freezeAuth ? "Enabled" : "Disabled",
       },
-      market,
+      market: normalizedMarket,
       marketAvailable,
+      rugCheck: normalizedRugCheck,
+      rugCheckAvailable,
     };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
