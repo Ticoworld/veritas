@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { z } from "zod/v3";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { VeritasInvestigator } from "@/lib/services/VeritasInvestigator";
@@ -134,14 +133,20 @@ const outputSchema = {
     "analysisTimeMs",
   ],
 } as const;
+const toolDefinition = {
+  name: "analyze_token",
+  description: "Analyze a Solana token for fraud risk using Veritas.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      tokenAddress: { type: "string", description: "Solana token mint address" },
+    },
+    required: ["tokenAddress"],
+  },
+  outputSchema,
+} as const;
 
-(mcpServer as any).tool(
-  "analyze_token",
-  "Solana token mint address to analyze for fraud risk",
-  z.object({
-    tokenAddress: z.string().describe("Solana token mint address"),
-  }),
-  async ({ tokenAddress }: { tokenAddress: string }) => {
+const handler = async ({ tokenAddress }: { tokenAddress: string }) => {
     try {
       const investigator = new VeritasInvestigator();
       const result = await investigator.investigate(tokenAddress);
@@ -155,9 +160,26 @@ const outputSchema = {
         isError: true,
       };
     }
-  },
-  { outputSchema } as any
-);
+  };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const toolWithSchema = toolDefinition as any;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+if (typeof (mcpServer as any).registerTool === "function") {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (mcpServer as any).registerTool(toolWithSchema, handler);
+} else {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (mcpServer as any).tool(
+    toolDefinition.name,
+    toolDefinition.description,
+    toolDefinition.inputSchema,
+    handler,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    { outputSchema: toolDefinition.outputSchema } as any
+  );
+}
 
 let transport: SSEServerTransport | null = null;
 
