@@ -152,51 +152,49 @@ export function TruthConsole() {
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      {/* Search Input */}
-      {!result && !loading && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#18181B] border border-[#27272A] text-[#A1A1AA] text-xs font-mono uppercase tracking-wide">
-              Solana token
-            </span>
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleScan()}
-              placeholder="Paste token contract address (from DexScreener, Raydium, Pump.fun...)"
-              disabled={loading}
-              className="w-full px-4 py-3 bg-[#0A0A0B] border border-[#27272A] rounded-sm
-                         text-[#FAFAFA] placeholder-[#52525B] font-mono text-sm
-                         focus:outline-none focus:border-[#3F3F46]
-                         disabled:opacity-50 transition-colors"
-            />
-            <p className="mt-1.5 text-[#52525B] text-xs">
-              Not your wallet address — use the token&apos;s contract/mint address
-            </p>
-          </div>
-
-          <button
-            onClick={handleScan}
-            disabled={loading || !address.trim()}
-            className="w-full py-3 px-4 bg-[#18181B] border border-[#27272A] 
-                       hover:bg-[#27272A] hover:border-[#3F3F46]
-                       disabled:opacity-40 disabled:cursor-not-allowed
-                       text-[#FAFAFA] font-medium text-sm rounded-sm
-                       transition-colors uppercase tracking-wide"
-          >
-            Analyze Token
-          </button>
-
-          {error && (
-            <div className="p-3 bg-[#18181B] border border-[#7F1D1D] rounded-sm">
-              <p className="text-[#FCA5A5] text-xs font-mono">{error}</p>
-            </div>
-          )}
+      {/* Search Input (Always Available) */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="inline-flex items-center px-2 py-0.5 rounded bg-[#18181B] border border-[#27272A] text-[#A1A1AA] text-xs font-mono uppercase tracking-wide">
+            Solana token
+          </span>
         </div>
-      )}
+        <div className="relative">
+          <input
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleScan()}
+            placeholder="Paste token contract address (from DexScreener, Raydium, Pump.fun...)"
+            disabled={loading}
+            className="w-full px-4 py-3 bg-[#0A0A0B] border border-[#27272A] rounded-sm
+                       text-[#FAFAFA] placeholder-[#52525B] font-mono text-sm
+                       focus:outline-none focus:border-[#3F3F46]
+                       disabled:opacity-50 transition-colors"
+          />
+          <p className="mt-1.5 text-[#52525B] text-xs">
+            Not your wallet address — use the token&apos;s contract/mint address
+          </p>
+        </div>
+
+        <button
+          onClick={handleScan}
+          disabled={loading || !address.trim()}
+          className="w-full py-3 px-4 bg-[#18181B] border border-[#27272A] 
+                     hover:bg-[#27272A] hover:border-[#3F3F46]
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     text-[#FAFAFA] font-medium text-sm rounded-sm
+                     transition-colors uppercase tracking-wide"
+        >
+          {result ? "Analyze Another" : "Analyze Token"}
+        </button>
+
+        {error && (
+          <div className="p-3 bg-[#18181B] border border-[#7F1D1D] rounded-sm">
+            <p className="text-[#FCA5A5] text-xs font-mono">{error}</p>
+          </div>
+        )}
+      </div>
 
       {/* Loading State - Premium CryptoLoader */}
       {loading && (

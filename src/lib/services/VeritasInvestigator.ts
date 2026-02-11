@@ -400,7 +400,53 @@ export class VeritasInvestigator {
   private async getHolderDistribution(mintAddress: PublicKey, supply: number, decimals: number) {
     try {
       const accounts = await connection.getTokenLargestAccounts(mintAddress);
-      const topHolders = accounts.value.slice(0, 10).map((acc) => {
+      const tokenAccounts = accounts.value.slice(0, 10);
+      const ownerByTokenAccount = new Map<string, string | null>();
+      const denylist = new Set(
+        (process.env.VERITAS_LP_OWNER_DENYLIST || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      );
+      const allowlist = new Set(
+        (process.env.VERITAS_LP_OWNER_ALLOWLIST || "")
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      );
+
+      await Promise.all(
+        tokenAccounts.map(async (acc) => {
+          try {
+            const info = await connection.getParsedAccountInfo(acc.address);
+            const data = info.value?.data;
+            const owner =
+              typeof data === "object" && data && "parsed" in data
+                ? (data as any).parsed?.info?.owner ?? null
+                : null;
+            ownerByTokenAccount.set(acc.address.toString(), owner);
+          } catch {
+            ownerByTokenAccount.set(acc.address.toString(), null);
+          }
+        })
+      );
+
+      const isLikelyLpOwner = (owner: string | null) => {
+        if (!owner) return false;
+        if (allowlist.has(owner)) return false;
+        if (denylist.has(owner)) return true;
+        try {
+          const ownerKey = new PublicKey(owner);
+          if (!PublicKey.isOnCurve(ownerKey.toBytes())) {
+            return true;
+          }
+        } catch {
+          return false;
+        }
+        return false;
+      };
+
+      const topHoldersAll = tokenAccounts.map((acc) => {
         const balance = Number(acc.amount) / Math.pow(10, decimals);
         return {
           address: acc.address.toString(),
@@ -408,6 +454,13 @@ export class VeritasInvestigator {
           percentage: (balance / supply) * 100,
         };
       });
+
+      const filteredTopHolders = topHoldersAll.filter((holder) => {
+        const owner = ownerByTokenAccount.get(holder.address) ?? null;
+        return !isLikelyLpOwner(owner);
+      });
+
+      const topHolders = filteredTopHolders.length > 0 ? filteredTopHolders : topHoldersAll;
       const top10Percentage = topHolders.reduce((sum, h) => sum + h.percentage, 0);
       return { topHolders, top10Percentage };
     } catch {

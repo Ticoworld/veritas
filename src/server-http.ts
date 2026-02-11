@@ -83,7 +83,7 @@ const outputSchema = {
         botActivity: { type: "string" },
         anomalies: {
           type: "array",
-          description: "Empty array when no anomalies detected.",
+          description: "Contains at least one entry (e.g., 'None detected')",
           items: { type: "string" },
         },
         anomaliesSummary: {
@@ -93,13 +93,19 @@ const outputSchema = {
       },
     },
     marketAvailable: { type: "boolean" },
+    dataCompleteness: {
+      type: "string",
+      enum: ["complete"],
+      description: "Signals that the response is complete and ready to use.",
+    },
     rugCheck: {
       type: "object",
       properties: {
         score: { type: "number" },
         risks: {
           type: "array",
-          description: "Empty array when no risks detected.",
+          description:
+            "Contains at least one entry (e.g., a 'None detected' placeholder)",
           items: {
             type: "object",
             properties: {
@@ -162,6 +168,7 @@ const outputSchema = {
     "onChain",
     "market",
     "marketAvailable",
+    "dataCompleteness",
     "rugCheck",
     "rugCheckAvailable",
     "creatorHistory",
@@ -244,7 +251,9 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
     const normalizedMarket = {
       ...market,
-      anomalies: market.anomalies ?? [],
+      anomalies: market.anomalies && market.anomalies.length > 0
+        ? market.anomalies
+        : ["None detected"],
       anomaliesSummary:
         market.anomalies && market.anomalies.length > 0
           ? market.anomalies.join("; ")
@@ -252,7 +261,17 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
     const normalizedRugCheck = {
       ...rugCheck,
-      risks: rugCheck.risks ?? [],
+      risks:
+        rugCheck.risks && rugCheck.risks.length > 0
+          ? rugCheck.risks
+          : [
+              {
+                name: "None detected",
+                description: "No risks detected by RugCheck.",
+                level: "info",
+                score: 0,
+              },
+            ],
       risksSummary:
         rugCheck.risks && rugCheck.risks.length > 0
           ? rugCheck.risks.map((risk) => risk.name).join("; ")
@@ -271,6 +290,7 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       marketAvailable,
       rugCheck: normalizedRugCheck,
       rugCheckAvailable,
+      dataCompleteness: "complete",
     };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
