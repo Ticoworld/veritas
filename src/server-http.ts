@@ -1,10 +1,14 @@
+import { randomUUID } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  isInitializeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { VeritasInvestigator } from "@/lib/services/VeritasInvestigator";
 
@@ -341,6 +345,171 @@ app.post("/message", (req, res) => {
 
 app.options("/message", (_, res) => res.sendStatus(204));
 app.options("/sse", (_, res) => res.sendStatus(204));
+app.options("/mcp", (_, res) => res.sendStatus(204));
+
+// ============================================================================
+// /mcp endpoint - Streamable HTTP (required by Context Protocol for discovery)
+// Context registers https://YOUR-URL/mcp - without this, tools show "Inactive"
+// ============================================================================
+
+const streamableTransports: Record<string, StreamableHTTPServerTransport> = {};
+const streamableServer = new Server(
+  { name: "Veritas-Intelligence", version: "1.0.0" },
+  { capabilities: { tools: { listChanged: false } } }
+);
+
+streamableServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [
+    {
+      name: toolDefinition.name,
+      description: toolDefinition.description,
+      inputSchema: {
+        type: "object",
+        properties: {
+          tokenAddress: {
+            type: "string",
+            description:
+              "The exact Solana token mint address to analyze (e.g., 57KoEZXm2mJwFqbB7fvcgZmmjc9mivFmKhXA45H3pump)",
+          },
+        },
+        required: ["tokenAddress"],
+      },
+      outputSchema: toolDefinition.outputSchema,
+    },
+  ],
+}));
+
+streamableServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name !== toolDefinition.name) {
+    throw new Error("Tool not found");
+  }
+
+  const tokenAddress = request.params.arguments?.tokenAddress as string | undefined;
+  if (!tokenAddress || typeof tokenAddress !== "string") {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({ error: "tokenAddress argument is required" }),
+        },
+      ],
+      structuredContent: { error: "tokenAddress argument is required" },
+      isError: true,
+    };
+  }
+
+  try {
+    const investigator = new VeritasInvestigator();
+    const result = await investigator.investigate(tokenAddress);
+    const onChain = result.onChain;
+    const marketAvailable = result.market !== null;
+    const market = result.market ?? {
+      liquidity: 0,
+      volume24h: 0,
+      marketCap: 0,
+      buySellRatio: 0,
+      ageInHours: 0,
+      botActivity: "Unknown",
+      anomalies: [],
+      anomaliesSummary: "None detected",
+    };
+    const rugCheckAvailable = result.rugCheck !== null;
+    const rugCheck = result.rugCheck ?? {
+      score: 0,
+      risks: [],
+      risksSummary: "None detected",
+    };
+    const normalizedMarket = {
+      ...market,
+      anomalies: market.anomalies && market.anomalies.length > 0 ? market.anomalies : ["None detected"],
+      anomaliesSummary:
+        market.anomalies && market.anomalies.length > 0 ? market.anomalies.join("; ") : "None detected",
+    };
+    const normalizedRugCheck = {
+      ...rugCheck,
+      risks:
+        rugCheck.risks && rugCheck.risks.length > 0
+          ? rugCheck.risks
+          : [
+              {
+                name: "None detected",
+                description: "No risks detected by RugCheck.",
+                level: "info",
+                score: 0,
+              },
+            ],
+      risksSummary:
+        rugCheck.risks && rugCheck.risks.length > 0 ? rugCheck.risks.map((r) => r.name).join("; ") : "None detected",
+    };
+    const normalizedLies = result.lies && result.lies.length > 0 ? result.lies : ["None detected"];
+    const mcpResult = {
+      ...result,
+      lies: normalizedLies,
+      onChain: {
+        ...onChain,
+        mintAuth: onChain.mintAuth ? "Enabled" : "Disabled",
+        freezeAuth: onChain.freezeAuth ? "Enabled" : "Disabled",
+        mintAuthStatus: onChain.mintAuth ? "Enabled" : "Disabled",
+        freezeAuthStatus: onChain.freezeAuth ? "Enabled" : "Disabled",
+      },
+      market: normalizedMarket,
+      marketAvailable,
+      rugCheck: normalizedRugCheck,
+      rugCheckAvailable,
+      dataCompleteness: "complete",
+    };
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
+      structuredContent: mcpResult,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+      structuredContent: { error: message },
+      isError: true,
+    };
+  }
+});
+
+async function handleMcpPost(req: express.Request, res: express.Response) {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  let transport: StreamableHTTPServerTransport;
+
+  if (sessionId && streamableTransports[sessionId]) {
+    transport = streamableTransports[sessionId];
+  } else if (
+    !sessionId &&
+    req.body &&
+    (Array.isArray(req.body) ? (req.body as unknown[]).some(isInitializeRequest) : isInitializeRequest(req.body))
+  ) {
+    transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => randomUUID(),
+      onsessioninitialized: (id) => {
+        streamableTransports[id] = transport;
+      },
+    });
+    await streamableServer.connect(transport);
+  } else {
+    res.status(400).json({ error: "Invalid session" });
+    return;
+  }
+
+  await transport.handleRequest(req, res, req.body);
+}
+
+async function handleMcpGet(req: express.Request, res: express.Response) {
+  const sessionId = req.headers["mcp-session-id"] as string | undefined;
+  const transport = sessionId ? streamableTransports[sessionId] : undefined;
+  if (transport) {
+    await transport.handleRequest(req, res);
+  } else {
+    res.status(400).json({ error: "Invalid session" });
+  }
+}
+
+app.post("/mcp", express.json(), handleMcpPost);
+app.get("/mcp", handleMcpGet);
 
 // Health checks (required by Context Protocol)
 const healthHandler = (_req: express.Request, res: express.Response) => {
@@ -362,6 +531,7 @@ app.get("/mcp/health", healthHandler);
 
 app.listen(port, () => {
   console.log(`[MCP HTTP] Veritas-Intelligence listening on :${port}`);
+  console.log(`[MCP HTTP] MCP endpoint:  /mcp (Streamable HTTP - for Context Protocol)`);
   console.log(`[MCP HTTP] SSE endpoint:  /sse`);
   console.log(`[MCP HTTP] POST endpoint: /message`);
 });
