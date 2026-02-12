@@ -342,10 +342,20 @@ app.post("/message", (req, res) => {
 app.options("/message", (_, res) => res.sendStatus(204));
 app.options("/sse", (_, res) => res.sendStatus(204));
 
-// Health check for UptimeRobot / Context Protocol
-app.get("/", (_req, res) => {
-  res.status(200).send("Veritas is Online");
-});
+// Health checks (required by Context Protocol)
+const healthHandler = (_req: express.Request, res: express.Response) => {
+  res.status(200).json({
+    status: "ok",
+    service: "Veritas",
+    version: "1.0.0",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+};
+
+app.get("/", healthHandler);
+app.get("/health", healthHandler);
+app.get("/ping", healthHandler);
 
 app.listen(port, () => {
   console.log(`[MCP HTTP] Veritas-Intelligence listening on :${port}`);
