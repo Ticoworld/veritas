@@ -356,6 +356,9 @@ const healthHandler = (_req: express.Request, res: express.Response) => {
 app.get("/", healthHandler);
 app.get("/health", healthHandler);
 app.get("/ping", healthHandler);
+// If Context appends /health to registered endpoint (e.g. .../sse -> .../sse/health)
+app.get("/sse/health", healthHandler);
+app.get("/mcp/health", healthHandler);
 
 app.listen(port, () => {
   console.log(`[MCP HTTP] Veritas-Intelligence listening on :${port}`);
