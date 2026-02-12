@@ -111,9 +111,11 @@ This mint ends in "pump" — it is a **Pump.fun launch**. The contract is the sa
 ` : '';
 
   // Vision instructions - CRITICAL for when URL Context fails
+  // TIER S FEATURE: Visual Asset Reuse Detection via Gemini Vision
   const visionInstructions = hasScreenshot ? `
-## ⚠️ CRITICAL: YOUR PRIMARY TASK IS TO READ THE SCREENSHOTS
+## ⚠️ CRITICAL: VISUAL ASSET REUSE DETECTION (TIER S - GEMINI VISION)
 I have attached up to TWO screenshots. URL Context will FAIL - ignore that. USE THE SCREENSHOTS.
+**YOU ARE PERFORMING COMPUTER VISION ANALYSIS.** Your visualAnalysis field proves Gemini actually saw and analyzed the images.
 
 ### STEP 1: ENUMERATE EVERY SECTION YOU SEE
 Go through the website screenshot FROM TOP TO BOTTOM and list out EVERY section:
@@ -122,7 +124,17 @@ Go through the website screenshot FROM TOP TO BOTTOM and list out EVERY section:
 - Is there a SOCIALS section? List all social links you see
 - Is there a footer? Any disclaimers?
 
-### STEP 2: READ THE TWITTER SCREENSHOT  
+### STEP 2: VISUAL ASSET REUSE DETECTION (MANDATORY)
+**Detect if this site uses recycled/scam template design:**
+- Does it resemble a KNOWN scam landing page? (e.g. generic "Buy $TOKEN" hero, copy-paste layout)
+- Are there FAKE partnership logos? (Binance, CoinGecko, CertiK, etc. that look pasted on)
+- Does the imagery look STOLEN or recycled from other projects?
+- Generic "Locked Liquidity" or "0% Tax" badges with no substance?
+- Same layout/colors/fonts as typical pump.fun scam sites?
+- Stock images or AI-generated art that looks templated?
+**State explicitly in visualAnalysis: "VISUAL ASSET REUSE: [YES/NO]. [Specific evidence from what you SEE in the screenshot]."**
+
+### STEP 3: READ THE TWITTER SCREENSHOT  
 - Account name, bio, verified status
 - Follower/following count
 - Join date
@@ -209,7 +221,7 @@ Respond with ONLY this JSON:
     "<Market analysis>",
     "<Website assessment>"
   ],
-  "visualAnalysis": "<What you SAW in the screenshot - be specific about text, buttons, design>",
+  "visualAnalysis": "<MANDATORY when screenshots provided: Describe exactly what you SAW. MUST include 'VISUAL ASSET REUSE: [YES/NO]' and specific evidence (template design, fake logos, recycled imagery, layout) - this proves Gemini Vision analyzed the image>",
   "degenComment": "<NOW SWITCH TO DEGEN MODE: 2-3 short sentences. Use slang. Use emojis. Be brutally honest. Give street-level advice. Examples: 'Ser this is a honeypot fr. You can buy but can't sell 🚫' or 'Template site, dev dumped, it's giving rug energy ngl' or 'Actually looks solid. Low risk, just volatile af 📊'>"
 }
 
@@ -220,6 +232,7 @@ Respond with ONLY this JSON:
 - No roadmap/team/utility = Maximum 55 trust score
 - Claims contradict on-chain = -20 from trust score
 - Template/low-effort site = -15 from trust score
+- VISUAL ASSET REUSE DETECTED (scam template, fake logos, recycled design) = -25 from trust score, flag in lies
 - Healthy on-chain + minimal website = 45-60 trust score (Caution)
 - Don't give 100% to meme coins with template sites!
 ${data.isPumpFun ? '- PUMP.FUN: Ignore honeypot/contract risk. Score mainly on dev holdings, distribution, and social vibes.' : ''}
