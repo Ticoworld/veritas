@@ -342,6 +342,11 @@ app.post("/message", (req, res) => {
 app.options("/message", (_, res) => res.sendStatus(204));
 app.options("/sse", (_, res) => res.sendStatus(204));
 
+// Health check for UptimeRobot / Context Protocol
+app.get("/", (_req, res) => {
+  res.status(200).send("Veritas is Online");
+});
+
 app.listen(port, () => {
   console.log(`[MCP HTTP] Veritas-Intelligence listening on :${port}`);
   console.log(`[MCP HTTP] SSE endpoint:  /sse`);
