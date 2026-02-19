@@ -217,10 +217,6 @@ export async function runUnifiedAnalysis(
       model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: contentParts }],
       config: {
-        tools: [
-          { urlContext: {} },
-          { googleSearch: {} },
-        ],
         thinkingConfig: {
           includeThoughts: true,
           thinkingLevel: ThinkingLevel.MEDIUM,
