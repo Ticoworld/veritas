@@ -162,13 +162,20 @@ export class VeritasInvestigator {
 
     // =====================================================================
     // PHASE 3: Screenshot + Creator history (parallel, both non-critical)
-    // Skip screenshot for pump.fun tokens — template sites, saves ~5s
+    // Screenshot runs for ALL tokens with a real website URL — no skipping.
+    // Pump.fun tokens can use scam templates too; Vision is Veritas's edge.
     // =====================================================================
     const websiteUrl = socials?.website;
-    const shouldScreenshot = websiteUrl && !isPumpFun;
+    // Only attempt screenshot for real website URLs — skip social/search redirects
+    const isRealWebsite =
+      !!websiteUrl &&
+      !websiteUrl.includes("x.com") &&
+      !websiteUrl.includes("twitter.com") &&
+      !websiteUrl.includes("t.me") &&
+      !websiteUrl.includes("telegram.me");
 
     const [websiteScreenshot, creatorHistory] = await Promise.all([
-      shouldScreenshot
+      isRealWebsite
         ? fetchScreenshotAsBase64(
             getMicrolinkUrl(websiteUrl!, true),
             { saveToDisk: process.env.VERITAS_SAVE_SCREENSHOTS === "true", prefix: "website" }
@@ -177,7 +184,9 @@ export class VeritasInvestigator {
       getCreatorHistory(creatorStatus.creatorAddress).catch(() => [] as any[]),
     ]);
 
-    if (isPumpFun) console.log("[Veritas] ⚡ Pump.fun token — screenshot skipped");
+    if (!websiteUrl) console.log("[Veritas] 🌐 No website found — visual analysis skipped");
+    else if (!isRealWebsite) console.log("[Veritas] 🌐 Website is a social/redirect URL — screenshot skipped");
+    else console.log(`[Veritas] 📸 Capturing screenshot: ${websiteUrl}`);
 
     // =====================================================================
     // PHASE 4: AI ANALYSIS
@@ -276,7 +285,14 @@ export class VeritasInvestigator {
       lies: aiResult.lies,
       evidence: aiResult.evidence,
       analysis: aiResult.analysis,
-      visualAnalysis: aiResult.visualAnalysis,
+      visualAnalysis:
+        aiResult.visualAnalysis && aiResult.visualAnalysis.trim() !== ""
+          ? aiResult.visualAnalysis
+          : !websiteUrl
+          ? "No website found. Visual analysis could not be performed."
+          : !isRealWebsite
+          ? `Website URL appears to be a social media or redirect link (${websiteUrl}). No screenshot was captured for visual analysis.`
+          : "Screenshot capture failed. Visual analysis could not be performed.",
       degenComment: aiResult.degenComment,
       thoughtSummary: aiResult.thoughtSummary,
       tokenAddress,
