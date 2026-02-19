@@ -24,6 +24,9 @@ async function main() {
     version: "1.0.0",
   });
 
+  // ============================================================================
+  // FREEMIUM: Token Analysis
+  // ============================================================================
   server.tool(
     "analyze_token",
     {
@@ -48,7 +51,8 @@ async function main() {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("[Veritas MCP] Veritas-Intelligence running on stdio");
+  console.error("[Veritas MCP] Veritas-Intelligence v1.0 running on stdio");
+  console.error("[Veritas MCP] Tools: analyze_token");
 }
 
 main().catch((e) => {

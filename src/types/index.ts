@@ -174,3 +174,94 @@ export interface WatchtowerQueueItem {
   riskScore?: number;
   verdict?: 'Safe' | 'Caution' | 'Danger';
 }
+
+// =============================================================================
+// PROGRESSIVE RENDERING TYPES — Dual-Fetch Architecture
+// =============================================================================
+
+/**
+ * Fast result from /api/analyze-fast — on-chain + market data only, no AI.
+ * Returns in <2s. Subset of ScanResult.
+ */
+export interface FastResult {
+  tokenAddress: string;
+  tokenName: string;
+  tokenSymbol: string;
+  deterministicScore: number;
+  onChain: {
+    mintAuth: string | null;
+    freezeAuth: string | null;
+    supply: number;
+    decimals: number;
+    top10Percentage: number;
+    creatorPercentage: number;
+    isDumped: boolean;
+    isWhale: boolean;
+  };
+  market: {
+    liquidity: number;
+    volume24h: number;
+    marketCap: number;
+    buySellRatio: number;
+    ageInHours: number;
+    botActivity: string;
+    anomalies: string[];
+  } | null;
+  rugCheck: {
+    score: number;
+    risks: Array<{ name: string; description: string; level: string; score: number }>;
+  } | null;
+  socials: { website?: string; twitter?: string; telegram?: string; discord?: string };
+  elephantMemory: { isKnownScammer: boolean };
+  creatorHistory: { creatorAddress: string; previousTokens: number; isSerialLauncher: boolean };
+  analyzedAt: string;
+  analysisTimeMs: number;
+}
+
+/**
+ * Full scan result from /api/analyze-unified — includes AI verdict, vision, lies.
+ * Returns in ~15s. Used by SlowVision component.
+ */
+export interface ScanResult {
+  tokenAddress: string;
+  tokenName: string;
+  tokenSymbol: string;
+  trustScore: number;
+  verdict: "Safe" | "Caution" | "Danger";
+  summary: string;
+  criminalProfile: string;
+  lies: string[];
+  evidence: string[];
+  analysis: string[];
+  visualAnalysis?: string;
+  degenComment: string;
+  thoughtSummary?: string;
+  onChain: {
+    mintAuth: string | null;
+    freezeAuth: string | null;
+    supply: number;
+    decimals: number;
+    top10Percentage: number;
+    creatorPercentage: number;
+    isDumped: boolean;
+    isWhale: boolean;
+  };
+  market: {
+    liquidity: number;
+    volume24h: number;
+    marketCap: number;
+    buySellRatio: number;
+    ageInHours: number;
+    botActivity: string;
+    anomalies: string[];
+  } | null;
+  rugCheck: {
+    score: number;
+    risks: Array<{ name: string; description: string; level: string; score: number }>;
+  } | null;
+  creatorHistory: { creatorAddress: string; previousTokens: number; isSerialLauncher: boolean };
+  socials: { website?: string; twitter?: string; telegram?: string; discord?: string };
+  elephantMemory: { isKnownScammer: boolean };
+  analyzedAt: string;
+  analysisTimeMs: number;
+}

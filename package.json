@@ -21,7 +21,7 @@
     "date-fns": "^4.1.0",
     "express": "^5.2.1",
     "framer-motion": "^12.23.26",
-    "lru-cache": "^11.2.5",
+    "lru-cache": "^11.2.6",
     "lucide-react": "^0.562.0",
     "mcp-handler": "^1.0.7",
     "mongodb": "^7.0.0",

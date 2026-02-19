@@ -24,6 +24,26 @@ export interface RugCheckReport {
 
 const RUGCHECK_API_BASE = "https://api.rugcheck.xyz/v1/tokens";
 
+// =============================================================================
+// 30-SECOND DEDUPLICATION CACHE
+// Prevents double-tap 429s when /api/analyze-fast and /api/analyze-unified
+// both call fetchRugCheck within milliseconds of each other.
+// Uses globalThis to survive Next.js dev hot reloads.
+// =============================================================================
+type RcCacheEntry = { data: RugCheckReport | null; expiresAt: number };
+const _globalRc = globalThis as unknown as { _rcCache?: Map<string, RcCacheEntry> };
+const _rcCache = _globalRc._rcCache ??= new Map<string, RcCacheEntry>();
+
+function _rcGet(key: string): RugCheckReport | null | undefined {
+  const entry = _rcCache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) { _rcCache.delete(key); return undefined; }
+  return entry.data;
+}
+function _rcSet(key: string, data: RugCheckReport | null): void {
+  _rcCache.set(key, { data, expiresAt: Date.now() + 30_000 });
+}
+
 /**
  * Fetches token security report from RugCheck
  * 
@@ -31,6 +51,13 @@ const RUGCHECK_API_BASE = "https://api.rugcheck.xyz/v1/tokens";
  * @returns RugCheckReport or null if unavailable
  */
 export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckReport | null> {
+  // Deduplication cache — 30s TTL prevents dual-fetch double-tap on RugCheck API
+  const cached = _rcGet(tokenAddress);
+  if (cached !== undefined) {
+    console.log(`[RugCheck] ⚡ Cache hit for ${tokenAddress.slice(0, 8)}`);
+    return cached;
+  }
+
   try {
     console.log(`[RugCheck] 🔍 Auditing contract: ${tokenAddress.slice(0, 8)}...`);
 
@@ -56,12 +83,14 @@ export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckRepor
     if (!response.ok) {
       if (response.status === 404) {
         console.log("[RugCheck] Token not found in database (too new or not indexed yet)");
+        _rcSet(tokenAddress, null);
         return null;
       } else if (response.status === 429) {
         console.warn("[RugCheck] Rate limit hit - consider adding RUGCHECK_API_KEY to .env");
-        return null;
+        return null; // Don't cache 429s — let retry flow naturally
       } else {
         console.warn(`[RugCheck] API error: ${response.status} ${response.statusText}`);
+        _rcSet(tokenAddress, null);
         return null;
       }
     }
@@ -102,7 +131,8 @@ export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckRepor
       `Risks: ${report.risks.length}` +
       `${creatorAddress ? ` | Creator: ${creatorAddress.slice(0, 8)}...` : ''}`
     );
-    
+
+    _rcSet(tokenAddress, report);
     return report;
   } catch (error) {
     if (error instanceof Error) {
@@ -114,6 +144,7 @@ export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckRepor
     } else {
       console.error("[RugCheck] Unknown error:", error);
     }
+    _rcSet(tokenAddress, null);
     return null;
   }
 }
