@@ -8,13 +8,18 @@ import type { TokenSocials } from "@/types";
 const DEXSCREENER_API = "https://api.dexscreener.com/latest/dex/tokens";
 
 // =============================================================================
-// 30-SECOND DEDUPLICATION CACHE
-// Prevents double-tap when /api/analyze-fast and /api/analyze-unified both call
-// fetchDexScreenerData within milliseconds of each other.
+// 30-SECOND DEDUPLICATION CACHE + IN-FLIGHT PROMISE DEDUP
+// Result cache: hits after first call completes (30s TTL).
+// In-flight map: if two routes fire simultaneously, the second awaits the
+// first’s in-flight Promise instead of making a duplicate request.
 // =============================================================================
 type DexCacheEntry = { data: DexScreenerResult; expiresAt: number };
-const _globalDex = globalThis as unknown as { _dexCache?: Map<string, DexCacheEntry> };
+const _globalDex = globalThis as unknown as {
+  _dexCache?: Map<string, DexCacheEntry>;
+  _dexInflight?: Map<string, Promise<DexScreenerResult>>;
+};
 const _dexCache = _globalDex._dexCache ??= new Map<string, DexCacheEntry>();
+const _dexInflight = _globalDex._dexInflight ??= new Map<string, Promise<DexScreenerResult>>();
 
 function _dexGet(key: string): DexScreenerResult | undefined {
   const entry = _dexCache.get(key);
@@ -47,14 +52,23 @@ export interface DexScreenerResult {
  * Single DexScreener fetch — returns socials + market pair data
  */
 export async function fetchDexScreenerData(address: string): Promise<DexScreenerResult> {
-  // Deduplication cache — 30s TTL prevents dual-fetch double-tap
+  // 1. Result cache hit (already completed)
   const cached = _dexGet(address);
   if (cached) {
     console.log(`[DexScreener] ⚡ Cache hit for ${address.slice(0, 8)}`);
     return cached;
   }
 
-  try {
+  // 2. In-flight dedup — second simultaneous caller gets the same Promise
+  const inflight = _dexInflight.get(address);
+  if (inflight) {
+    console.log(`[DexScreener] ⏳ Awaiting in-flight request for ${address.slice(0, 8)}`);
+    return inflight;
+  }
+
+  // 3. New request — store Promise immediately before awaiting
+  const promise = (async (): Promise<DexScreenerResult> => {
+    try {
     console.log(`[DexScreener] 🔍 Fetching data for ${address.slice(0, 8)}...`);
 
     const response = await fetch(`${DEXSCREENER_API}/${address}`, {
@@ -139,7 +153,17 @@ export async function fetchDexScreenerData(address: string): Promise<DexScreener
     return result;
   } catch (error) {
     console.error("[DexScreener] Error:", error);
-    return { socials: {}, pairData: null };
+    const empty: DexScreenerResult = { socials: {}, pairData: null };
+    _dexSet(address, empty);
+    return empty;
+  }
+  })();
+
+  _dexInflight.set(address, promise);
+  try {
+    return await promise;
+  } finally {
+    _dexInflight.delete(address);
   }
 }
 
@@ -161,6 +185,33 @@ export interface TokenSearchResult {
   marketCap: number;
   liquidity: number;
   pairCreatedAt: number;
+}
+
+/**
+ * Resolves a potential DexScreener pair address to its base token mint address.
+ * DexScreener URLs use pair addresses (LP pool), not token mints.
+ * If the address is already a mint (pairs endpoint returns nothing), returns it unchanged.
+ */
+export async function resolveToMintAddress(address: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://api.dexscreener.com/latest/dex/pairs/solana/${address}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!response.ok) return address;
+    const data = await response.json();
+    const pairs = data?.pairs;
+    if (pairs && pairs.length > 0 && pairs[0].baseToken?.address) {
+      const resolved: string = pairs[0].baseToken.address;
+      if (resolved !== address) {
+        console.log(`[DexScreener] 🔗 Pair resolved: ${address.slice(0, 8)} → token ${resolved.slice(0, 8)}`);
+      }
+      return resolved;
+    }
+  } catch {
+    // ignore — fall back to original
+  }
+  return address;
 }
 
 export async function searchTokenByTicker(ticker: string): Promise<TokenSearchResult | null> {

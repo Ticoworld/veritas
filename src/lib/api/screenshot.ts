@@ -10,7 +10,33 @@ const MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
  * @param url The URL to screenshot
  * @param fullPage Whether to capture the full page or just the viewport
  */
-const SCREENSHOT_TIMEOUT_MS = 5000;
+// ScreenshotOne: primary provider — handles Cloudflare, removes cookie banners, fast CDN
+// Microlink: cold fallback only — unreliable on modern sites, 2s cut-off
+const SCREENSHOTONE_TIMEOUT_MS = 6000;
+const MICROLINK_TIMEOUT_MS = 2000;
+
+/**
+ * Generates a ScreenshotOne URL for capturing screenshots.
+ * ScreenshotOne bypasses Cloudflare, blocks cookie banners, and returns fast from CDN.
+ * Requires SCREENSHOTONE_ACCESS_KEY env var.
+ */
+export function getScreenshotOneUrl(url: string, fullPage: boolean = false): string {
+  const params = new URLSearchParams({
+    access_key: process.env.SCREENSHOTONE_ACCESS_KEY!,
+    url,
+    format: "jpeg",
+    image_quality: "80",
+    viewport_width: "800",
+    viewport_height: fullPage ? "2000" : "1200",
+    block_ads: "true",
+    block_cookie_banners: "true",
+    block_trackers: "true",
+    delay: "0",
+    timeout: "15",
+  });
+  if (fullPage) params.append("full_page", "true");
+  return `https://api.screenshotone.com/take?${params.toString()}`;
+}
 
 export function getMicrolinkUrl(url: string, fullPage: boolean = false): string {
   const params = new URLSearchParams({
@@ -18,7 +44,7 @@ export function getMicrolinkUrl(url: string, fullPage: boolean = false): string 
     screenshot: "true",
     meta: "false",
     embed: "screenshot.url",
-    waitForTimeout: "5000",
+    waitForTimeout: "3000",
     waitUntil: "networkidle0",
   });
 
@@ -121,14 +147,21 @@ export async function fetchScreenshotAsBase64(
   options?: { saveToDisk?: boolean; prefix?: "website" | "twitter" }
 ): Promise<ScreenshotResult | null> {
   try {
-    console.log("[Veritas Paparazzi] 📸 Snapping photo...");
-    const fetchUrl = url.includes("api.microlink.io") ? url : getMicrolinkUrl(url);
+    const useScreenshotOne = !!process.env.SCREENSHOTONE_ACCESS_KEY;
+    const provider = useScreenshotOne ? "ScreenshotOne" : "Microlink";
+    const timeoutMs = useScreenshotOne ? SCREENSHOTONE_TIMEOUT_MS : MICROLINK_TIMEOUT_MS;
+    const fetchUrl = useScreenshotOne
+      ? getScreenshotOneUrl(url)
+      : url.includes("api.microlink.io") ? url : getMicrolinkUrl(url);
+
+    console.log(`[Veritas Paparazzi] 📸 Snapping via ${provider} (${timeoutMs}ms deadline)...`);
+
     const response = await fetch(fetchUrl, {
-      signal: AbortSignal.timeout(SCREENSHOT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
 
     if (!response.ok) {
-      console.warn("[Veritas Paparazzi] Failed to capture screenshot:", response.status);
+      console.warn(`[Veritas Paparazzi] ${provider} failed:`, response.status);
       return null;
     }
 
@@ -148,8 +181,9 @@ export async function fetchScreenshotAsBase64(
 
     return { base64, mimeType, ...(publicUrl && { publicUrl }) };
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      console.warn("[Veritas Paparazzi] Screenshot timeout (5s) — skipping");
+    if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
+      const provider = process.env.SCREENSHOTONE_ACCESS_KEY ? "ScreenshotOne" : "Microlink";
+      console.warn(`[Veritas Paparazzi] ${provider} timed out — skipping visual`);
     } else {
       console.warn("[Veritas Paparazzi] Camera malfunction:", error);
     }

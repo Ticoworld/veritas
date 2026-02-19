@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { VeritasInvestigator } from "@/lib/services/VeritasInvestigator";
 import { checkRateLimit, RateLimitExceededError } from "@/lib/security/RateLimiter";
+import { resolveToMintAddress } from "@/lib/api/dexscreener";
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -40,13 +41,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Unified API] 🚀 Investigation request for ${address.slice(0, 8)}...`);
+    // Resolve pair address → token mint (DexScreener pair URLs use LP addresses, not mints)
+    const resolvedAddress = await resolveToMintAddress(address);
+
+    console.log(`[Unified API] 🚀 Investigation request for ${resolvedAddress.slice(0, 8)}...`);
 
     // ═══════════════════════════════════════════════════════════════════
     // GRAND UNIFICATION: Single Service Orchestrates Everything
     // ═══════════════════════════════════════════════════════════════════
     const investigator = new VeritasInvestigator();
-    const result = await investigator.investigate(address);
+    const result = await investigator.investigate(resolvedAddress);
 
     // Return standardized response
     return NextResponse.json({

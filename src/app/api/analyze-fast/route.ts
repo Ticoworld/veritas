@@ -19,7 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PublicKey } from "@solana/web3.js";
 import { connection } from "@/lib/solana";
-import { fetchDexScreenerData } from "@/lib/api/dexscreener";
+import { fetchDexScreenerData, resolveToMintAddress } from "@/lib/api/dexscreener";
 import { analyzeMarketData } from "@/lib/api/market";
 import { fetchRugCheck, type RugCheckReport } from "@/lib/api/rugcheck";
 import { checkKnownScammer } from "@/lib/db/elephant";
@@ -170,12 +170,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Fast API] ⚡ Fast scan for ${address.slice(0, 8)}...`);
+    // Resolve pair address → token mint (DexScreener pair URLs use LP addresses, not mints)
+    const resolvedAddress = await resolveToMintAddress(address);
+
+    console.log(`[Fast API] ⚡ Fast scan for ${resolvedAddress.slice(0, 8)}...`);
 
     // Validate Solana address
     let mintAddress: PublicKey;
     try {
-      mintAddress = new PublicKey(address.trim());
+      mintAddress = new PublicKey(resolvedAddress.trim());
     } catch {
       return NextResponse.json(
         { success: false, error: "Invalid Solana address format" },
@@ -198,8 +201,8 @@ export async function POST(request: NextRequest) {
     // =========================================================================
     const [dexResult, rugCheckReport, holderResult, elephantResult, creatorHistoryRaw] =
       await Promise.all([
-        fetchDexScreenerData(address),
-        fetchRugCheck(address),
+        fetchDexScreenerData(resolvedAddress),
+        fetchRugCheck(resolvedAddress),
         _getHolderDistribution(mintAddress, supply, decimals),
         creatorWallet ? checkKnownScammer(creatorWallet) : Promise.resolve(null),
         creatorWallet
@@ -226,7 +229,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Fast API] ✅ Done in ${elapsed}ms | Score: ${deterministicScore}`);
 
     const result: FastResult = {
-      tokenAddress: address,
+      tokenAddress: resolvedAddress,
       tokenName: socials?.name || "SPL Token",
       tokenSymbol: socials?.symbol || "TOKEN",
       deterministicScore,

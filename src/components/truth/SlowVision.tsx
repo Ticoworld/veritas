@@ -83,7 +83,7 @@ export function SlowVision({ result, onCopy, copied }: SlowVisionProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   // Build red flags
-  const flags: { label: string; variant: "danger" | "warn" | "meme" }[] = [];
+  const flags: { label: string; variant: "danger" | "warn" | "meme" | "safe" }[] = [];
   if (result.onChain.mintAuth) flags.push({ label: "MINT ENABLED", variant: "danger" });
   if (result.onChain.freezeAuth) flags.push({ label: "FREEZE ENABLED", variant: "danger" });
   if (result.onChain.isDumped) flags.push({ label: "DEV DUMPED", variant: "warn" });
@@ -108,7 +108,7 @@ export function SlowVision({ result, onCopy, copied }: SlowVisionProps) {
 
   const hasVision =
     !!result.visualAnalysis &&
-    !/no (website|screenshot|image) (or screenshot )?(provided|available)/i.test(
+    !/no website|screenshot capture failed|screenshot skipped|no screenshot|social media or redirect/i.test(
       result.visualAnalysis
     );
 
@@ -123,9 +123,12 @@ export function SlowVision({ result, onCopy, copied }: SlowVisionProps) {
       result.visualAnalysis!
     );
   const isScamTemplate = isAssetReuse && !isMemeContext;
+  // When Vision ran and found NO reuse — show it as a positive signal
+  const isOriginalAssets = hasVision && !isAssetReuse;
 
   if (isScamTemplate) flags.push({ label: "SCAM TEMPLATE", variant: "danger" });
   if (isMemeContext) flags.push({ label: "MEME ASSETS", variant: "meme" });
+  if (isOriginalAssets) flags.push({ label: "ORIGINAL ASSETS", variant: "safe" });
 
   return (
     <div className={`rounded-lg border ${v.border} ${v.glow} overflow-hidden`}>
@@ -183,7 +186,9 @@ export function SlowVision({ result, onCopy, copied }: SlowVisionProps) {
                     ? "bg-red-500/10 border border-red-500/30 text-red-400"
                     : f.variant === "warn"
                     ? "bg-amber-500/10 border border-amber-500/30 text-amber-400"
-                    : "bg-zinc-700/20 border border-zinc-600/30 text-zinc-500"
+                    : f.variant === "safe"
+                    ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                    : "bg-violet-500/10 border border-violet-500/30 text-violet-400"
                 }`}
               >
                 {f.label}
@@ -201,10 +206,8 @@ export function SlowVision({ result, onCopy, copied }: SlowVisionProps) {
                 AI Vision
               </span>
             </div>
-            <p className="text-zinc-400 text-xs font-mono leading-relaxed">
-              {result.visualAnalysis!.length > 180
-                ? result.visualAnalysis!.slice(0, 180) + "..."
-                : result.visualAnalysis}
+            <p className="text-zinc-400 text-xs font-mono leading-relaxed whitespace-pre-wrap">
+              {result.visualAnalysis}
             </p>
           </div>
         )}

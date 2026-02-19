@@ -25,14 +25,15 @@ export interface RugCheckReport {
 const RUGCHECK_API_BASE = "https://api.rugcheck.xyz/v1/tokens";
 
 // =============================================================================
-// 30-SECOND DEDUPLICATION CACHE
-// Prevents double-tap 429s when /api/analyze-fast and /api/analyze-unified
-// both call fetchRugCheck within milliseconds of each other.
-// Uses globalThis to survive Next.js dev hot reloads.
+// 30-SECOND DEDUPLICATION CACHE + IN-FLIGHT PROMISE DEDUP
 // =============================================================================
 type RcCacheEntry = { data: RugCheckReport | null; expiresAt: number };
-const _globalRc = globalThis as unknown as { _rcCache?: Map<string, RcCacheEntry> };
+const _globalRc = globalThis as unknown as {
+  _rcCache?: Map<string, RcCacheEntry>;
+  _rcInflight?: Map<string, Promise<RugCheckReport | null>>;
+};
 const _rcCache = _globalRc._rcCache ??= new Map<string, RcCacheEntry>();
+const _rcInflight = _globalRc._rcInflight ??= new Map<string, Promise<RugCheckReport | null>>();
 
 function _rcGet(key: string): RugCheckReport | null | undefined {
   const entry = _rcCache.get(key);
@@ -51,26 +52,34 @@ function _rcSet(key: string, data: RugCheckReport | null): void {
  * @returns RugCheckReport or null if unavailable
  */
 export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckReport | null> {
-  // Deduplication cache — 30s TTL prevents dual-fetch double-tap on RugCheck API
+  // 1. Result cache hit
   const cached = _rcGet(tokenAddress);
   if (cached !== undefined) {
     console.log(`[RugCheck] ⚡ Cache hit for ${tokenAddress.slice(0, 8)}`);
     return cached;
   }
 
+  // 2. In-flight dedup
+  const inflight = _rcInflight.get(tokenAddress);
+  if (inflight) {
+    console.log(`[RugCheck] ⏳ Awaiting in-flight request for ${tokenAddress.slice(0, 8)}`);
+    return inflight;
+  }
+
+  // 3. New request
+  const promise = (async (): Promise<RugCheckReport | null> => {
+
   try {
     console.log(`[RugCheck] 🔍 Auditing contract: ${tokenAddress.slice(0, 8)}...`);
 
     // Check if API key is configured (optional but recommended)
     const apiKey = process.env.RUGCHECK_API_KEY;
-    if (!apiKey) {
-      console.warn("[RugCheck] No RUGCHECK_API_KEY found - using public tier (rate limited)");
-    }
 
     const headers: Record<string, string> = {
       "Accept": "application/json",
     };
-    
+
+    // Public tier is fine — no need to warn on every scan
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
@@ -146,6 +155,14 @@ export async function fetchRugCheck(tokenAddress: string): Promise<RugCheckRepor
     }
     _rcSet(tokenAddress, null);
     return null;
+  }
+  })();
+
+  _rcInflight.set(tokenAddress, promise);
+  try {
+    return await promise;
+  } finally {
+    _rcInflight.delete(tokenAddress);
   }
 }
 

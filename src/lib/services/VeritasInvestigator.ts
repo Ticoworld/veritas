@@ -241,10 +241,11 @@ export class VeritasInvestigator {
     let finalScore = Math.min(deterministicScore, aiResult.trustScore);
 
     // SCAM TEMPLATE NUKE:
+    // Only fires when we have an actual screenshot — never on hallucinated vision output.
     // If Gemini confirms VISUAL ASSET REUSE and the context is NOT recognizable meme culture
     // (e.g. Wojak/Pepe/Doge are whitelisted — that's normal), hard-cap the score to 50.
-    // A genuine scam template can never achieve an APE IT verdict regardless of on-chain math.
     if (
+      websiteScreenshot &&
       aiResult.visualAnalysis &&
       /VISUAL ASSET REUSE:\s*YES/i.test(aiResult.visualAnalysis) &&
       !/meme culture|meme aesthetic|thematic|standard for|pepe|wojak|doge|iconic meme|cultural|tribute|community meme/i.test(
@@ -286,7 +287,7 @@ export class VeritasInvestigator {
       evidence: aiResult.evidence,
       analysis: aiResult.analysis,
       visualAnalysis:
-        aiResult.visualAnalysis && aiResult.visualAnalysis.trim() !== ""
+        websiteScreenshot && aiResult.visualAnalysis && aiResult.visualAnalysis.trim() !== ""
           ? aiResult.visualAnalysis
           : !websiteUrl
           ? "No website found. Visual analysis could not be performed."

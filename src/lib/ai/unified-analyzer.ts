@@ -135,7 +135,8 @@ ${data.websiteUrl ? `Website: ${data.websiteUrl}` : 'No website (common for pump
 - Creator DUMPED ALL = Max 45 (dumping is expected on pump.fun, penalty but not death)
 - Template/scam website = Max 50
 - Website claims contradict on-chain = trustScore -20
-- VISUAL ASSET REUSE detected = trustScore -25
+- SCAM TEMPLATE reuse (generic copy-paste layout, fake partnership logos, stolen project branding) = trustScore -25
+- Meme culture reuse (Pepe, Wojak, Doge, iconic meme imagery) = NEUTRAL. Does NOT lower trustScore. It is community culture.
 - Clean on-chain + no website = 55-70 (Caution — not enough info for Safe)
 - Clean on-chain + legit website = 70-88
 - Don't score above 88 for ANY meme coin.
@@ -219,7 +220,7 @@ export async function runUnifiedAnalysis(
       config: {
         thinkingConfig: {
           includeThoughts: true,
-          thinkingLevel: ThinkingLevel.MEDIUM,
+          thinkingLevel: ThinkingLevel.LOW,
         },
       },
     });

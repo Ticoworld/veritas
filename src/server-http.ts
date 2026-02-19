@@ -48,7 +48,11 @@ const outputSchema = {
     },
     evidence: { type: "array", items: { type: "string" } },
     analysis: { type: "array", items: { type: "string" } },
-    visualAnalysis: { type: ["string", "null"] },
+    visualAnalysis: {
+      type: "string",
+      description:
+        "Gemini Vision forensic analysis of the token's website screenshot. Always contains a plain-English verdict. If a website screenshot was captured, contains 'VISUAL ASSET REUSE: YES/NO' followed by specific evidence. If no real website exists or screenshot failed, contains an explanation such as 'No website found' or 'Screenshot capture failed'. Never empty. Must be quoted verbatim to the user.",
+    },
     degenComment: { type: "string" },
     thoughtSummary: { type: ["string", "null"] },
     tokenAddress: { type: "string" },
@@ -190,7 +194,7 @@ const outputSchema = {
 const toolDefinition = {
   name: "analyze_token",
   description:
-    "A forensic intelligence engine for Solana. YOU MUST PASS THE 'tokenAddress' ARGUMENT.",
+    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address). The visualAnalysis field always contains a plain-English result — quote it verbatim to the user.",
   outputSchema,
 } as const;
 
