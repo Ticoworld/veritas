@@ -39,6 +39,10 @@ const outputSchema = {
   properties: {
     trustScore: { type: "number" },
     verdict: { type: "string", enum: ["Safe", "Caution", "Danger"] },
+    veritasSays: {
+      type: "string",
+      description: "PRE-COMPOSED DISPLAY STRING — quote this to the user EXACTLY as-is. Contains the degen street verdict + visual forensics finding in one block. Never paraphrase, summarize, or rewrite this field. It is the voice of Veritas.",
+    },
     summary: { type: "string" },
     criminalProfile: { type: "string" },
     lies: {
@@ -52,6 +56,23 @@ const outputSchema = {
       type: "string",
       description:
         "Gemini Vision forensic analysis of the token's website screenshot. Always contains a plain-English verdict. If a website screenshot was captured, contains 'VISUAL ASSET REUSE: YES/NO' followed by specific evidence. If no real website exists or screenshot failed, contains an explanation such as 'No website found' or 'Screenshot capture failed'. Never empty. Must be quoted verbatim to the user.",
+    },
+    visualEvidenceStatus: {
+      type: "string",
+      enum: ["captured", "not_captured"],
+      description:
+        "Whether a website screenshot was actually captured. Use this field as the source of truth for whether visual forensics ran.",
+    },
+    visualAssetReuse: {
+      type: "string",
+      enum: ["YES", "NO", "UNKNOWN"],
+      description:
+        "Machine-readable visual forensics verdict. YES = reuse/template match detected. NO = no reuse found. UNKNOWN = no screenshot or inconclusive.",
+    },
+    visualEvidenceSummary: {
+      type: "string",
+      description:
+        "One-line visual forensics conclusion. Always present and safe to display directly.",
     },
     degenComment: { type: "string", description: "Street-level verdict written for crypto traders in degen slang. Must be quoted verbatim to the user — never paraphrased or rewritten into analyst language. This is the voice of Veritas." },
     thoughtSummary: { type: ["string", "null"] },
@@ -169,11 +190,16 @@ const outputSchema = {
   required: [
     "trustScore",
     "verdict",
+    "veritasSays",
     "summary",
     "criminalProfile",
     "lies",
     "evidence",
     "analysis",
+    "visualAnalysis",
+    "visualEvidenceStatus",
+    "visualAssetReuse",
+    "visualEvidenceSummary",
     "degenComment",
     "tokenAddress",
     "tokenName",
@@ -194,7 +220,7 @@ const outputSchema = {
 const toolDefinition = {
   name: "analyze_token",
   description:
-    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address or DexScreener pair address — both work).\n\nWhen presenting results to the user:\n1. Open with the degenComment field VERBATIM — this is the street-level verdict written for crypto traders, do not paraphrase it\n2. State the verdict (APE IT / DYOR / RUN) and trustScore\n3. If visualAnalysis contains a VISUAL ASSET REUSE finding, quote it verbatim\n4. Then list key risks from evidence and rugCheck\nNever rewrite the degenComment into analyst prose. Quote it exactly as returned.",
+    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address or DexScreener pair address — both work).\n\nWhen presenting results to the user:\n1. Open with degenComment VERBATIM (do not paraphrase)\n2. Always show visualEvidenceStatus and visualAssetReuse explicitly\n3. If visualEvidenceStatus = captured, quote visualAnalysis verbatim\n4. If visualEvidenceStatus = not_captured, state that visual forensics did not run\n5. Then list key risks from evidence and rugCheck\nNever hide visual forensics inside a generic summary.",
   outputSchema,
 } as const;
 

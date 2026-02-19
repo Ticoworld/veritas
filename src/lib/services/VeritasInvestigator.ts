@@ -41,6 +41,10 @@ export interface InvestigationResult {
   evidence: string[];
   analysis: string[];
   visualAnalysis?: string;
+  visualEvidenceStatus: "captured" | "not_captured";
+  visualAssetReuse: "YES" | "NO" | "UNKNOWN";
+  visualEvidenceSummary: string;
+  veritasSays: string;
   degenComment: string;
   thoughtSummary?: string;
   tokenAddress: string;
@@ -278,6 +282,40 @@ export class VeritasInvestigator {
     const elapsed = Date.now() - this.startTime;
     console.log(`[Veritas] ✅ Done in ${elapsed}ms`);
 
+    // =====================================================================
+    // COMPOSE VISUAL FORENSICS FIELDS
+    // =====================================================================
+    const visualTrust = websiteScreenshot && aiResult.visualAnalysis && aiResult.visualAnalysis.trim() !== "";
+    const rawVisual = visualTrust ? aiResult.visualAnalysis : null;
+
+    const visualEvidenceStatus: "captured" | "not_captured" = visualTrust ? "captured" : "not_captured";
+
+    const hasReuseYes = rawVisual ? /VISUAL ASSET REUSE:\s*YES/i.test(rawVisual) : false;
+    const hasReuseNo  = rawVisual ? /VISUAL ASSET REUSE:\s*NO/i.test(rawVisual) : false;
+    const visualAssetReuse: "YES" | "NO" | "UNKNOWN" = hasReuseYes ? "YES" : hasReuseNo ? "NO" : "UNKNOWN";
+
+    const visualEvidenceSummary = rawVisual
+      ? hasReuseYes
+        ? `⚠️ VISUAL ASSET REUSE DETECTED. ${rawVisual.replace(/.*VISUAL ASSET REUSE:\s*YES\.?\s*/i, "").slice(0, 120)}`
+        : `✅ ORIGINAL ASSETS. ${rawVisual.replace(/.*VISUAL ASSET REUSE:\s*NO\.?\s*/i, "").slice(0, 120)}`
+      : !websiteUrl
+      ? "No website — visual forensics not applicable."
+      : !isRealWebsite
+      ? "Social/redirect URL — no screenshot captured."
+      : "Screenshot failed — visual forensics unavailable.";
+
+    const visualAnalysisFinal = rawVisual
+      ? rawVisual
+      : !websiteUrl
+      ? "No website found. Visual analysis could not be performed."
+      : !isRealWebsite
+      ? `Website URL appears to be a social media or redirect link (${websiteUrl}). No screenshot was captured for visual analysis.`
+      : "Screenshot capture failed. Visual analysis could not be performed.";
+
+    // veritasSays: pre-composed display block for Context Protocol
+    // This is the field Context formats AI will quote verbatim
+    const veritasSays = `${aiResult.degenComment}\n\n👁 VISUAL FORENSICS: ${visualEvidenceSummary}`;
+
     const finalResult: InvestigationResult = {
       trustScore: finalScore,
       verdict: finalVerdict,
@@ -286,14 +324,11 @@ export class VeritasInvestigator {
       lies: aiResult.lies,
       evidence: aiResult.evidence,
       analysis: aiResult.analysis,
-      visualAnalysis:
-        websiteScreenshot && aiResult.visualAnalysis && aiResult.visualAnalysis.trim() !== ""
-          ? aiResult.visualAnalysis
-          : !websiteUrl
-          ? "No website found. Visual analysis could not be performed."
-          : !isRealWebsite
-          ? `Website URL appears to be a social media or redirect link (${websiteUrl}). No screenshot was captured for visual analysis.`
-          : "Screenshot capture failed. Visual analysis could not be performed.",
+      visualAnalysis: visualAnalysisFinal,
+      visualEvidenceStatus,
+      visualAssetReuse,
+      visualEvidenceSummary,
+      veritasSays,
       degenComment: aiResult.degenComment,
       thoughtSummary: aiResult.thoughtSummary,
       tokenAddress,
@@ -499,6 +534,11 @@ export class VeritasInvestigator {
         `Detection count: ${knownScammer.scanCount}`,
       ],
       analysis: ["INSTANT BLOCK — Elephant Memory triggered"],
+      visualAnalysis: "No visual analysis — known scammer fast-path.",
+      visualEvidenceStatus: "not_captured",
+      visualAssetReuse: "UNKNOWN",
+      visualEvidenceSummary: "No visual analysis — known scammer fast-path.",
+      veritasSays: `This dev already rugged before. ${knownScammer.scanCount}th token. RUN. 🚫\n\n👁 VISUAL FORENSICS: No visual analysis — known scammer fast-path.`,
       degenComment: `This dev already rugged before. ${knownScammer.scanCount}th token. RUN. 🚫`,
       tokenAddress,
       tokenName: knownScammer.tokenName || "Unknown Token",
