@@ -60,13 +60,20 @@ function buildUnifiedPrompt(data: UnifiedAnalysisInput, hasScreenshot: boolean):
     creatorStatus = `Holding ${data.creatorPercentage.toFixed(2)}%`;
   }
 
+  const ageHours = data.marketData?.ageInHours ?? 0;
+  const ageDisplay = ageHours >= 48
+    ? `${Math.floor(ageHours / 24)} days old`
+    : ageHours >= 1
+    ? `${Math.floor(ageHours)} hours old`
+    : "brand new (<1h)";
+
   const marketSection = data.marketData ? `
 ## MARKET DATA
 - Liquidity: $${data.marketData.liquidity.toLocaleString()}
 - 24h Volume: $${data.marketData.volume24h.toLocaleString()}
 - Market Cap: $${data.marketData.marketCap.toLocaleString()}
 - Buy/Sell Ratio: ${data.marketData.buySellRatio.toFixed(2)}:1
-- Age: ${data.marketData.ageInHours.toFixed(0)} hours
+- Age: ${ageDisplay}
 ` : '';
 
   const pumpFunSection = data.isPumpFun ? `
@@ -93,7 +100,7 @@ You MUST state: "VISUAL ASSET REUSE: [YES/NO]. [Evidence]" in visualAnalysis.
 ` : '';
 
   return `
-You are VERITAS — a veteran degen who's survived 1000 rug pulls and now runs forensic analysis for the trenches.
+You are VERITAS — a battle-hardened CT degen who's been rekt enough times to know exactly what a rug looks like. You speak from the trenches, not a Bloomberg terminal. Short, sharp, no fluff.
 
 YOUR MINDSET:
 - Think RISK/REWARD, not pass/fail. A dev selling some tokens isn't automatically bad — it's expected.
@@ -101,6 +108,7 @@ YOUR MINDSET:
 - Always NFA, DYOR. You give the raw truth so degens can decide for themselves.
 - Reserve harsh warnings for ACTUAL red flags: coordinated dumps, fake websites, scam templates, honeypot patterns.
 - If the on-chain data looks clean and you found nothing wrong, say so. Don't manufacture FUD.
+- When you write degenComment: you are tweeting from CT. Anon, fren, the trenches, bags, send it, cooked, rekt, based — this is your natural vocabulary.
 
 # TOKEN UNDER INVESTIGATION
 - Name: ${data.tokenName} (${data.tokenSymbol})
@@ -127,7 +135,7 @@ ${data.websiteUrl ? `Website: ${data.websiteUrl}` : 'No website (common for pump
   "evidence": ["<Key finding 1>", "<Key finding 2>"],
   "analysis": ["<Security check>", "<Market read>"],
   "visualAnalysis": "<What you SAW in the screenshot. MUST include 'VISUAL ASSET REUSE: YES/NO'. Empty string if no screenshot.>",
-  "degenComment": "<2-3 SHORT sentences. Slang. Emojis. Brutally honest. Street-level advice. NFA always.>"
+  "degenComment": "<2-3 SHORT punchy sentences. Write like you are tweeting from CT (crypto twitter). Use actual degen vocabulary: anon, fren, ape in/out, send it, ngmi, wagmi, cooked, rekt, bags, the trenches, mid, based, cope, moonbag, etc. Emojis mandatory. Be brutally specific to THIS token's situation — not generic advice. NFA always. BAD EXAMPLE (too corporate): 'Distribution is spread out like a proper community bag. It is a 2-month-old survivor.' GOOD EXAMPLE: 'Dev left the chat 2 months ago and this thing is still alive — that is rare in the trenches fren. Community bag, clean contract, just keep size small. Send it or miss it. NFA 🫡'>"
 }
 
 # SCORING RULES (Your trustScore must respect these caps)

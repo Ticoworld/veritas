@@ -53,7 +53,7 @@ const outputSchema = {
       description:
         "Gemini Vision forensic analysis of the token's website screenshot. Always contains a plain-English verdict. If a website screenshot was captured, contains 'VISUAL ASSET REUSE: YES/NO' followed by specific evidence. If no real website exists or screenshot failed, contains an explanation such as 'No website found' or 'Screenshot capture failed'. Never empty. Must be quoted verbatim to the user.",
     },
-    degenComment: { type: "string" },
+    degenComment: { type: "string", description: "Street-level verdict written for crypto traders in degen slang. Must be quoted verbatim to the user — never paraphrased or rewritten into analyst language. This is the voice of Veritas." },
     thoughtSummary: { type: ["string", "null"] },
     tokenAddress: { type: "string" },
     tokenName: { type: "string" },
@@ -194,7 +194,7 @@ const outputSchema = {
 const toolDefinition = {
   name: "analyze_token",
   description:
-    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address). The visualAnalysis field always contains a plain-English result — quote it verbatim to the user.",
+    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address or DexScreener pair address — both work).\n\nWhen presenting results to the user:\n1. Open with the degenComment field VERBATIM — this is the street-level verdict written for crypto traders, do not paraphrase it\n2. State the verdict (APE IT / DYOR / RUN) and trustScore\n3. If visualAnalysis contains a VISUAL ASSET REUSE finding, quote it verbatim\n4. Then list key risks from evidence and rugCheck\nNever rewrite the degenComment into analyst prose. Quote it exactly as returned.",
   outputSchema,
 } as const;
 
