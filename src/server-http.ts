@@ -37,48 +37,25 @@ if (typeof serverAny.setCapabilities === "function") {
 const outputSchema = {
   type: "object",
   properties: {
-    trustScore: { type: "number" },
-    verdict: { type: "string", enum: ["Safe", "Caution", "Danger"] },
     veritasSays: {
       type: "string",
-      description: "PRE-COMPOSED DISPLAY STRING — quote this to the user EXACTLY as-is. Contains the degen street verdict + visual forensics finding in one block. Never paraphrase, summarize, or rewrite this field. It is the voice of Veritas.",
+      description: "THE COMPLETE PRE-FORMATTED ANALYSIS. Contains trust score, degen street verdict, visual forensics finding, key metrics, and socials — all in one block. Display this EXACTLY as-is to the user. This IS the Veritas report. Do not rewrite, summarize, or rearrange it.",
     },
-    summary: { type: "string" },
-    criminalProfile: { type: "string" },
-    lies: {
-      type: "array",
-      description: "Contains at least one entry (e.g., 'None detected')",
-      items: { type: "string" },
-    },
-    evidence: { type: "array", items: { type: "string" } },
-    analysis: { type: "array", items: { type: "string" } },
-    visualAnalysis: {
-      type: "string",
-      description:
-        "Gemini Vision forensic analysis of the token's website screenshot. Always contains a plain-English verdict. If a website screenshot was captured, contains 'VISUAL ASSET REUSE: YES/NO' followed by specific evidence. If no real website exists or screenshot failed, contains an explanation such as 'No website found' or 'Screenshot capture failed'. Never empty. Must be quoted verbatim to the user.",
-    },
+    trustScore: { type: "number", description: "0-100 trust score" },
+    verdict: { type: "string", enum: ["Safe", "Caution", "Danger"] },
+    tokenName: { type: "string" },
+    tokenSymbol: { type: "string" },
+    tokenAddress: { type: "string" },
     visualEvidenceStatus: {
       type: "string",
       enum: ["captured", "not_captured"],
-      description:
-        "Whether a website screenshot was actually captured. Use this field as the source of truth for whether visual forensics ran.",
+      description: "Whether a website screenshot was captured for visual forensics.",
     },
     visualAssetReuse: {
       type: "string",
       enum: ["YES", "NO", "UNKNOWN"],
-      description:
-        "Machine-readable visual forensics verdict. YES = reuse/template match detected. NO = no reuse found. UNKNOWN = no screenshot or inconclusive.",
+      description: "Visual forensics verdict: YES = reuse detected, NO = original assets, UNKNOWN = no screenshot.",
     },
-    visualEvidenceSummary: {
-      type: "string",
-      description:
-        "One-line visual forensics conclusion. Always present and safe to display directly.",
-    },
-    degenComment: { type: "string", description: "Street-level verdict written for crypto traders in degen slang. Must be quoted verbatim to the user — never paraphrased or rewritten into analyst language. This is the voice of Veritas." },
-    thoughtSummary: { type: ["string", "null"] },
-    tokenAddress: { type: "string" },
-    tokenName: { type: "string" },
-    tokenSymbol: { type: "string" },
     onChain: {
       type: "object",
       properties: {
@@ -94,16 +71,9 @@ const outputSchema = {
         isWhale: { type: "boolean" },
       },
       required: [
-        "mintAuth",
-        "freezeAuth",
-        "mintAuthStatus",
-        "freezeAuthStatus",
-        "supply",
-        "decimals",
-        "top10Percentage",
-        "creatorPercentage",
-        "isDumped",
-        "isWhale",
+        "mintAuth", "freezeAuth", "mintAuthStatus", "freezeAuthStatus",
+        "supply", "decimals", "top10Percentage", "creatorPercentage",
+        "isDumped", "isWhale",
       ],
     },
     market: {
@@ -117,13 +87,9 @@ const outputSchema = {
         botActivity: { type: "string" },
         anomalies: {
           type: "array",
-          description: "Contains at least one entry (e.g., 'None detected')",
           items: { type: "string" },
         },
-        anomaliesSummary: {
-          type: "string",
-          description: "Human-readable summary; 'None detected' when empty.",
-        },
+        anomaliesSummary: { type: "string" },
       },
     },
     marketAvailable: { type: "boolean" },
@@ -138,8 +104,6 @@ const outputSchema = {
         score: { type: "number" },
         risks: {
           type: "array",
-          description:
-            "Contains at least one entry (e.g., a 'None detected' placeholder)",
           items: {
             type: "object",
             properties: {
@@ -151,10 +115,7 @@ const outputSchema = {
             required: ["name", "description", "level", "score"],
           },
         },
-        risksSummary: {
-          type: "string",
-          description: "Human-readable summary; 'None detected' when empty.",
-        },
+        risksSummary: { type: "string" },
       },
     },
     rugCheckAvailable: { type: "boolean" },
@@ -186,24 +147,31 @@ const outputSchema = {
     },
     analyzedAt: { type: "string" },
     analysisTimeMs: { type: "number" },
+    rawIntelligence: {
+      type: "object",
+      description: "Supplementary AI-generated narrative data. The veritasSays field already contains all of this in display-ready format — use rawIntelligence only if you need individual fields for programmatic access.",
+      properties: {
+        summary: { type: "string" },
+        criminalProfile: { type: "string" },
+        lies: { type: "array", items: { type: "string" } },
+        evidence: { type: "array", items: { type: "string" } },
+        analysis: { type: "array", items: { type: "string" } },
+        visualAnalysis: { type: "string" },
+        visualEvidenceSummary: { type: "string" },
+        degenComment: { type: "string" },
+        thoughtSummary: { type: ["string", "null"] },
+      },
+    },
   },
   required: [
+    "veritasSays",
     "trustScore",
     "verdict",
-    "veritasSays",
-    "summary",
-    "criminalProfile",
-    "lies",
-    "evidence",
-    "analysis",
-    "visualAnalysis",
-    "visualEvidenceStatus",
-    "visualAssetReuse",
-    "visualEvidenceSummary",
-    "degenComment",
-    "tokenAddress",
     "tokenName",
     "tokenSymbol",
+    "tokenAddress",
+    "visualEvidenceStatus",
+    "visualAssetReuse",
     "onChain",
     "market",
     "marketAvailable",
@@ -215,12 +183,13 @@ const outputSchema = {
     "elephantMemory",
     "analyzedAt",
     "analysisTimeMs",
+    "rawIntelligence",
   ],
 } as const;
 const toolDefinition = {
   name: "analyze_token",
   description:
-    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), criminal profile, detected lies, and visual asset reuse findings. Required argument: tokenAddress (exact Solana mint address or DexScreener pair address — both work).\n\nWhen presenting results to the user:\n1. Open with degenComment VERBATIM (do not paraphrase)\n2. Always show visualEvidenceStatus and visualAssetReuse explicitly\n3. If visualEvidenceStatus = captured, quote visualAnalysis verbatim\n4. If visualEvidenceStatus = not_captured, state that visual forensics did not run\n5. Then list key risks from evidence and rugCheck\nNever hide visual forensics inside a generic summary.",
+    "Forensic intelligence engine for Solana tokens. Combines on-chain data, market signals, RugCheck contract audit, and Gemini Vision website screenshot analysis to produce a Trust Score (0-100), verdict (Safe/Caution/Danger), and visual asset reuse detection. Required argument: tokenAddress (exact Solana mint address or DexScreener pair address — both work).\n\nThe veritasSays field is a pre-composed display string containing the COMPLETE Veritas analysis — trust score, street-level verdict, visual forensics findings, key metrics, and socials. Present it to the user EXACTLY as-is. Do not paraphrase, rewrite, or rearrange its content. Supplement with structured data (onChain, market, rugCheck) for tables if desired, but veritasSays IS the primary report.",
   outputSchema,
 } as const;
 
@@ -318,9 +287,20 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
     const normalizedLies =
       result.lies && result.lies.length > 0 ? result.lies : ["None detected"];
+    // Structure: veritasSays is THE narrative. All raw AI text fields are nested
+    // under rawIntelligence so the formatting AI doesn't compete with them.
     const mcpResult = {
-      ...result,
-      lies: normalizedLies,
+      // PRIMARY — the formatting AI should use this as the complete display
+      veritasSays: result.veritasSays,
+      trustScore: result.trustScore,
+      verdict: result.verdict,
+      tokenName: result.tokenName,
+      tokenSymbol: result.tokenSymbol,
+      tokenAddress: result.tokenAddress,
+      // Visual forensics — structured for easy display
+      visualEvidenceStatus: result.visualEvidenceStatus,
+      visualAssetReuse: result.visualAssetReuse,
+      // Structured data — for tables and detailed sections
       onChain: {
         ...onChain,
         mintAuth: onChain.mintAuth ? "Enabled" : "Disabled",
@@ -332,7 +312,24 @@ mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       marketAvailable,
       rugCheck: normalizedRugCheck,
       rugCheckAvailable,
+      creatorHistory: result.creatorHistory,
+      socials: result.socials,
+      elephantMemory: result.elephantMemory,
+      analyzedAt: result.analyzedAt,
+      analysisTimeMs: result.analysisTimeMs,
       dataCompleteness: "complete",
+      // Raw AI narratives — supplementary detail, NOT for primary display
+      rawIntelligence: {
+        summary: result.summary,
+        criminalProfile: result.criminalProfile,
+        lies: normalizedLies,
+        evidence: result.evidence,
+        analysis: result.analysis,
+        visualAnalysis: result.visualAnalysis,
+        visualEvidenceSummary: result.visualEvidenceSummary,
+        degenComment: result.degenComment,
+        thoughtSummary: result.thoughtSummary,
+      },
     };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],

@@ -312,9 +312,43 @@ export class VeritasInvestigator {
       ? `Website URL appears to be a social media or redirect link (${websiteUrl}). No screenshot was captured for visual analysis.`
       : "Screenshot capture failed. Visual analysis could not be performed.";
 
-    // veritasSays: pre-composed display block for Context Protocol
-    // This is the field Context formats AI will quote verbatim
-    const veritasSays = `${aiResult.degenComment}\n\n👁 VISUAL FORENSICS: ${visualEvidenceSummary}`;
+    // veritasSays: THE complete display block for Context Protocol.
+    // Contains everything the formatting AI needs — degen voice, visual forensics,
+    // key metrics, socials. By being comprehensive, the formatting AI has no reason
+    // to compose its own narrative from other fields.
+    const ageHours = marketData?.ageInHours ?? 0;
+    const ageDisplay = ageHours >= 48
+      ? `${Math.floor(ageHours / 24)} days`
+      : ageHours >= 1 ? `${Math.floor(ageHours)}h` : "<1h";
+    const fmt = (n: number | undefined) => {
+      if (!n) return "N/A";
+      if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+      if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+      return `$${n.toFixed(0)}`;
+    };
+    const socialsLine = [
+      socials?.website,
+      socials?.telegram ? `TG: ${socials.telegram}` : null,
+      socials?.twitter ? `X: ${socials.twitter}` : null,
+    ].filter(Boolean).join(" | ");
+
+    const veritasSays = [
+      `🔍 VERITAS FORENSIC REPORT: ${tokenName} ($${tokenSymbol})`,
+      `Trust Score: ${finalScore}/100 — ${finalVerdict}`,
+      `Profile: ${aiResult.criminalProfile}`,
+      ``,
+      aiResult.degenComment,
+      ``,
+      `👁 VISUAL FORENSICS: ${visualEvidenceSummary}`,
+      ``,
+      `📊 KEY DATA:`,
+      `• Market Cap: ${fmt(marketData?.marketCap)} | Liquidity: ${fmt(marketData?.liquidity)} | 24h Volume: ${fmt(marketData?.volume24h)}`,
+      `• Top 10 Holders: ${top10Percentage.toFixed(1)}% | Creator: ${creatorStatus.creatorPercentage.toFixed(1)}%${creatorStatus.isDumped ? " (Dumped)" : ""}`,
+      `• Contract: Mint ${tokenInfo.mintAuthority ? "⚠️ Enabled" : "✅ Disabled"} | Freeze ${tokenInfo.freezeAuthority ? "⚠️ Enabled" : "✅ Disabled"}`,
+      rugCheckReport ? `• RugCheck: ${rugCheckReport.score}/100` : null,
+      marketData ? `• Age: ${ageDisplay}` : null,
+      socialsLine ? `\n🔗 ${socialsLine}` : null,
+    ].filter(x => x !== null).join("\n");
 
     const finalResult: InvestigationResult = {
       trustScore: finalScore,
@@ -538,7 +572,20 @@ export class VeritasInvestigator {
       visualEvidenceStatus: "not_captured",
       visualAssetReuse: "UNKNOWN",
       visualEvidenceSummary: "No visual analysis — known scammer fast-path.",
-      veritasSays: `This dev already rugged before. ${knownScammer.scanCount}th token. RUN. 🚫\n\n👁 VISUAL FORENSICS: No visual analysis — known scammer fast-path.`,
+      veritasSays: [
+        `🔍 VERITAS FORENSIC REPORT: ${knownScammer.tokenName || "Unknown Token"} ($SCAM)`,
+        `Trust Score: 0/100 — Danger`,
+        `Profile: The Repeat Offender`,
+        ``,
+        `This dev already rugged before. ${knownScammer.scanCount}th token. RUN. 🚫`,
+        ``,
+        `👁 VISUAL FORENSICS: No visual analysis — known scammer fast-path.`,
+        ``,
+        `📊 KEY DATA:`,
+        `• 🚨 KNOWN SCAMMER — Wallet flagged: ${knownScammer.flaggedAt.toISOString().split('T')[0]}`,
+        `• Previous scam: ${knownScammer.tokenName || "Unknown"}`,
+        `• Detection count: ${knownScammer.scanCount}`,
+      ].join("\n"),
       degenComment: `This dev already rugged before. ${knownScammer.scanCount}th token. RUN. 🚫`,
       tokenAddress,
       tokenName: knownScammer.tokenName || "Unknown Token",
