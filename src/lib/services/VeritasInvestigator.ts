@@ -12,7 +12,7 @@ import { connection } from "@/lib/solana";
 import { fetchDexScreenerData } from "@/lib/api/dexscreener";
 import { analyzeMarketData } from "@/lib/api/market";
 import { getCreatorHistory } from "@/lib/api/historian";
-import { fetchScreenshotAsBase64, getMicrolinkUrl } from "@/lib/api/screenshot";
+import { fetchScreenshotAsBase64 } from "@/lib/api/screenshot";
 import { fetchRugCheck, type RugCheckReport } from "@/lib/api/rugcheck";
 import { runUnifiedAnalysis, type UnifiedAnalysisInput, type UnifiedAnalysisResult } from "@/lib/ai/unified-analyzer";
 import { checkKnownScammer, flagScammer, type ScammerRecord } from "@/lib/db/elephant";
@@ -181,7 +181,7 @@ export class VeritasInvestigator {
     const [websiteScreenshot, creatorHistory] = await Promise.all([
       isRealWebsite
         ? fetchScreenshotAsBase64(
-            getMicrolinkUrl(websiteUrl!, true),
+            websiteUrl!,
             { saveToDisk: process.env.VERITAS_SAVE_SCREENSHOTS === "true", prefix: "website" }
           ).catch(() => null)
         : Promise.resolve(null),
