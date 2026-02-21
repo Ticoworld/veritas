@@ -471,8 +471,14 @@ streamableServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
     const normalizedLies = result.lies && result.lies.length > 0 ? result.lies : ["None detected"];
     const mcpResult = {
-      ...result,
-      lies: normalizedLies,
+      veritasSays: result.veritasSays,
+      trustScore: result.trustScore,
+      verdict: result.verdict,
+      tokenName: result.tokenName,
+      tokenSymbol: result.tokenSymbol,
+      tokenAddress: result.tokenAddress,
+      visualEvidenceStatus: result.visualEvidenceStatus,
+      visualAssetReuse: result.visualAssetReuse,
       onChain: {
         ...onChain,
         mintAuth: onChain.mintAuth ? "Enabled" : "Disabled",
@@ -484,7 +490,23 @@ streamableServer.setRequestHandler(CallToolRequestSchema, async (request) => {
       marketAvailable,
       rugCheck: normalizedRugCheck,
       rugCheckAvailable,
+      creatorHistory: result.creatorHistory,
+      socials: result.socials,
+      elephantMemory: result.elephantMemory,
+      analyzedAt: result.analyzedAt,
+      analysisTimeMs: result.analysisTimeMs,
       dataCompleteness: "complete",
+      rawIntelligence: {
+        summary: result.summary,
+        criminalProfile: result.criminalProfile,
+        lies: normalizedLies,
+        evidence: result.evidence,
+        analysis: result.analysis,
+        visualAnalysis: result.visualAnalysis,
+        visualEvidenceSummary: result.visualEvidenceSummary,
+        degenComment: result.degenComment,
+        thoughtSummary: result.thoughtSummary,
+      },
     };
     return {
       content: [{ type: "text" as const, text: JSON.stringify(mcpResult, null, 2) }],
